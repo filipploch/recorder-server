@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel sterowania nagrywaniem</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Panel sterowania nagrywaniem</h1>
+        
+        <div class="section">
+            <h2>Status połączeń</h2>
+            <div id="status" class="status">Inicjalizacja...</div>
+            <div class="status">
+                <span class="obs-status" id="obs-indicator"></span>
+                <span id="obs-status">OBS: Sprawdzanie...</span>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Sterowanie nagrywaniem kamer</h2>
+            <div class="button-group">
+                <button class="btn btn-success" onclick="startRecording()">Start Recording (Kamery)</button>
+                <button class="btn btn-danger" onclick="stopRecording()">Stop Recording (Kamery)</button>
+                <button class="btn btn-info" onclick="getStatus()">Odśwież status</button>
+            </div>
+            
+            <h3>Kamery:</h3>
+            <div id="cameras" class="camera-list">
+                <label class="camera-checkbox">
+                    <input type="checkbox" id="camera_main" checked>
+                    <span>Camera Main</span>
+                </label>
+                <label class="camera-checkbox">
+                    <input type="checkbox" id="camera_center" checked>
+                    <span>Camera Center</span>
+                </label>
+                <label class="camera-checkbox">
+                    <input type="checkbox" id="camera_left" checked>
+                    <span>Camera Left</span>
+                </label>
+                <label class="camera-checkbox">
+                    <input type="checkbox" id="camera_right" checked>
+                    <span>Camera Right</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Sterowanie OBS Studio</h2>
+            <div class="button-group">
+                <button class="btn btn-success" onclick="obsStartRecording()">OBS: Start Recording</button>
+                <button class="btn btn-danger" onclick="obsStopRecording()">OBS: Stop Recording</button>
+                <button class="btn btn-info" onclick="obsGetStatus()">OBS: Sprawdź status</button>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="obsGetScenes()">Pobierz listę scen</button>
+            </div>
+            <div id="scenes-container" class="scenes-container"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Stoper</h2>
+            <div class="timer-display" id="timer-display">00:00.0</div>
+            <div class="timer-info" id="timer-info"></div>
+            
+            <div class="timer-config">
+                <h3>Konfiguracja:</h3>
+                <div class="config-row">
+                    <label>
+                        Kierunek:
+                        <select id="timer-direction">
+                            <option value="up">W górę (0 → max)</option>
+                            <option value="down">W dół (max → 0)</option>
+                        </select>
+                    </label>
+                    
+                    <label>
+                        Dokładność wyświetlania:
+                        <select id="timer-broadcast-precision">
+                            <option value="s">Sekundy (s)</option>
+                            <option value="ds" selected>Decysekundy (0.1s)</option>
+                            <option value="cs">Centysekundy (0.01s)</option>
+                            <option value="ms">Milisekundy (0.001s)</option>
+                        </select>
+                    </label>
+                </div>
+                
+                <div class="config-row">
+                    <label>
+                        Maksymalny czas (sekundy, puste = nieokreślony):
+                        <input type="number" id="timer-max-duration" placeholder="np. 60">
+                    </label>
+                    
+                    <label>
+                        Po osiągnięciu max:
+                        <select id="timer-stop-behavior">
+                            <option value="auto">Zatrzymaj automatycznie</option>
+                            <option value="continue">Kontynuuj (+nadwyżka)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-success" onclick="timerStart()">Start / Wznów</button>
+                <button class="btn btn-warning" onclick="timerPause()">Pauza</button>
+                <button class="btn btn-secondary" onclick="timerReset()">Reset</button>
+            </div>
+            
+            <div class="quick-timers">
+                <h3>Szybkie ustawienia:</h3>
+                <div class="button-group">
+                    <button class="btn btn-scene" onclick="timerQuickStart(30, 'down')">30s countdown</button>
+                    <button class="btn btn-scene" onclick="timerQuickStart(60, 'down')">60s countdown</button>
+                    <button class="btn btn-scene" onclick="timerQuickStart(300, 'down')">5min countdown</button>
+                    <button class="btn btn-scene" onclick="timerQuickStart(null, 'up')">Stopwatch ∞</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
