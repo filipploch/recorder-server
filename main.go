@@ -6,6 +6,7 @@ import (
 	"recorder-server/config"
 	"recorder-server/internal/database"
 	"recorder-server/internal/handlers"
+	"recorder-server/internal/models"
 	"recorder-server/internal/services"
 	"recorder-server/internal/state"
 
@@ -39,9 +40,16 @@ func main() {
 	}
 	log.Println("Database Manager zainicjalizowany")
 	
+	// Wykonaj migrację modeli dla aktualnej bazy
+	log.Println("Wykonywanie migracji bazy danych...")
+	if err := dbManager.AutoMigrate(models.GetAllModels()...); err != nil {
+		log.Printf("OSTRZEŻENIE: Błąd migracji bazy danych: %v", err)
+	} else {
+		log.Printf("Migracja zakończona pomyślnie dla bazy: %s", dbManager.GetCurrentDatabaseName())
+	}
+	
 	// Zamknij połączenia z bazami przy wyjściu
 	defer dbManager.Close()
-	log.Println("Socket.IO serwis zainicjalizowany")
 
 	// Inicjalizacja klienta OBS WebSocket
 	obsClient := services.NewOBSClient(cfg.OBS.URL, cfg.OBS.Password)
@@ -103,6 +111,7 @@ func main() {
 	log.Printf("Serwer uruchomiony na: http://%s", addr)
 	log.Printf("Panel WWW: http://localhost:%s", cfg.Server.Port)
 	log.Printf("Socket.IO: ws://localhost:%s/socket.io/", cfg.Server.Port)
+	log.Printf("Aktualna baza danych: %s", dbManager.GetCurrentDatabaseName())
 	log.Printf("=================================")
 
 	if err := http.ListenAndServe(addr, router); err != nil {

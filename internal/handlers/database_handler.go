@@ -48,7 +48,7 @@ func (h *DatabaseHandler) GetAvailable(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// SwitchDatabase - przełącza na inną bazę
+// SwitchDatabase - przełącza na inną bazę i wykonuje migrację
 func (h *DatabaseHandler) SwitchDatabase(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		DatabaseName string `json:"database_name"`
@@ -64,6 +64,7 @@ func (h *DatabaseHandler) SwitchDatabase(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Przełącz bazę
 	if err := h.manager.SwitchDatabase(req.DatabaseName); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(models.APIResponse{
@@ -73,18 +74,29 @@ func (h *DatabaseHandler) SwitchDatabase(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Wykonaj migrację dla nowej bazy
+	if err := h.manager.AutoMigrate(models.GetAllModels()...); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Status: "error",
+			Error:  "Przełączono bazę, ale migracja nie powiodła się: " + err.Error(),
+		})
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":           "success",
 		"current_database": req.DatabaseName,
-		"message":          "Przełączono na bazę: " + req.DatabaseName,
+		"message":          "Przełączono na bazę: " + req.DatabaseName + " i wykonano migrację",
 	})
 }
 
-// CreateDatabase - tworzy nową bazę danych
+// CreateDatabase - tworzy nową bazę danych i wykonuje migrację
 func (h *DatabaseHandler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		DatabaseName string `json:"database_name"`
+		SwitchTo     bool   `json:"switch_to"` // Czy automatycznie przełączyć na nową bazę
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -97,6 +109,7 @@ func (h *DatabaseHandler) CreateDatabase(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Utwórz bazę
 	if err := h.manager.CreateDatabase(req.DatabaseName); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(models.APIResponse{
@@ -106,12 +119,41 @@ func (h *DatabaseHandler) CreateDatabase(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	// Jeśli switch_to = true, przełącz na nową bazę
+	if req.SwitchTo {
+		if err := h.manager.SwitchDatabase(req.DatabaseName); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(models.APIResponse{
+				Status: "error",
+				Error:  "Utworzono bazę, ale nie można było przełączyć: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	// Wykonaj migrację dla nowej bazy
+	if err := h.manager.AutoMigrate(models.GetAllModels()...); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Status: "error",
+			Error:  "Utworzono bazę, ale migracja nie powiodła się: " + err.Error(),
+		})
+		return
+	}
+
+	response := map[string]interface{}{
 		"status":        "success",
 		"database_name": req.DatabaseName,
-		"message":       "Utworzono bazę: " + req.DatabaseName,
-	})
+		"message":       "Utworzono bazę: " + req.DatabaseName + " i wykonano migrację",
+	}
+
+	if req.SwitchTo {
+		response["current_database"] = req.DatabaseName
+		response["message"] = "Utworzono bazę i przełączono na: " + req.DatabaseName
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }
 
 // DeleteDatabase - usuwa bazę danych
