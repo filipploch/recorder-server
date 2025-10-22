@@ -146,8 +146,10 @@ type Gamepart struct {
 	ID         uint    `gorm:"primaryKey" json:"id"`
 	Name       string  `gorm:"not null" json:"name"`
 	MinPoints  *int    `json:"min_points"` // nullable
-	Duration   *int    `json:"duration"`   // nullable - czas w sekundach
+	Length     *int    `json:"length"`     // nullable - czas w sekundach
 	MatchOrder int     `gorm:"unique;not null" json:"match_order"`
+	TimeGroup  *uint   `json:"time_group"`  // nullable - grupa do sumowania czasów
+	Actualtime int     `gorm:"default:0" json:"actualtime"` // ostatnio zapisany czas w sekundach
 	
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
