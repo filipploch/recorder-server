@@ -231,18 +231,18 @@ type Eventtype struct {
 type Event struct {
 	ID          uint   `gorm:"primaryKey" json:"id"`
 	Name        string `gorm:"not null" json:"name"`
-	EventtypeID uint   `json:"eventtype_id"`
+	EventTypeID uint   `json:"event_type_id"`
 	GameID      uint   `json:"game_id"`
-	GamepartID  uint   `json:"gamepart_id"`
-	Eventtime   int    `json:"eventtime"` // czas w sekundach
+	GamePartID  uint   `json:"game_part_id"`
+	EventTime   int    `json:"event_time"` // czas w sekundach
 	CameraID    uint   `json:"camera_id"`
 	TeamID      *uint  `json:"team_id"`   // nullable
 	PlayerID    *uint  `json:"player_id"` // nullable
 	
 	// Relacje
-	Eventtype Eventtype `gorm:"foreignKey:EventtypeID" json:"eventtype,omitempty"`
+	EventType EventType `gorm:"foreignKey:EventTypeID" json:"event_type,omitempty"`
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
-	Gamepart  Gamepart  `gorm:"foreignKey:GamepartID" json:"gamepart,omitempty"`
+	GamePart  GamePart  `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
 	Camera    Camera    `gorm:"foreignKey:CameraID" json:"camera,omitempty"`
 	Team      *Team     `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	Player    *Player   `gorm:"foreignKey:PlayerID" json:"player,omitempty"`
@@ -256,16 +256,16 @@ type Event struct {
 type Replay struct {
 	ID         uint   `gorm:"primaryKey" json:"id"`
 	GameID     uint   `json:"game_id"`
-	GamepartID uint   `json:"gamepart_id"`
+	GamePartID uint   `json:"game_part_id"`
 	EventID    uint   `json:"event_id"`
 	File       string `json:"file"` // link do pliku
 	CameraID   uint   `json:"camera_id"`
-	Starttime  int    `json:"starttime"` // czas w sekundach
-	Endtime    int    `json:"endtime"`   // czas w sekundach
+	StartTime  int    `json:"start_time"` // czas w sekundach
+	EndTime    int    `json:"end_time"`   // czas w sekundach
 	
 	// Relacje
 	Game     Game     `gorm:"foreignKey:GameID" json:"game,omitempty"`
-	Gamepart Gamepart `gorm:"foreignKey:GamepartID" json:"gamepart,omitempty"`
+	GamePart GamePart `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
 	Event    Event    `gorm:"foreignKey:EventID" json:"event,omitempty"`
 	Camera   Camera   `gorm:"foreignKey:CameraID" json:"camera,omitempty"`
 	
