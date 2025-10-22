@@ -272,6 +272,30 @@ type Replay struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+// Substitution - zmiana zawodników
+type Substitution struct {
+	ID                uint `gorm:"primaryKey" json:"id"`
+	GameID            uint `json:"game_id"`
+	GamepartID        uint `json:"gamepart_id"`
+	SubstitutionBlock uint `json:"substitution_block"`
+	TeamID            uint `json:"team_id"`
+	PlayerInID        uint `json:"player_in_id"`
+	PlayerOutID       uint `json:"player_out_id"`
+	Time              int  `json:"time"`                          // czas w sekundach
+	IsDone            bool `gorm:"default:false" json:"is_done"`
+	
+	// Relacje
+	Game        Game     `gorm:"foreignKey:GameID" json:"game,omitempty"`
+	Gamepart    Gamepart `gorm:"foreignKey:GamepartID" json:"gamepart,omitempty"`
+	Team        Team     `gorm:"foreignKey:TeamID" json:"team,omitempty"`
+	PlayerIn    Player   `gorm:"foreignKey:PlayerInID" json:"player_in,omitempty"`
+	PlayerOut   Player   `gorm:"foreignKey:PlayerOutID" json:"player_out,omitempty"`
+	
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
 // GetAllModels - zwraca slice wszystkich modeli do migracji
 func GetAllModels() []interface{} {
 	return []interface{}{
@@ -292,5 +316,6 @@ func GetAllModels() []interface{} {
 		&Eventtype{},
 		&Event{},
 		&Replay{},
+		&Substitution{},
 	}
 }
