@@ -3,12 +3,14 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"recorder-server/config"
 	"recorder-server/internal/database"
 	"recorder-server/internal/handlers"
 	"recorder-server/internal/models"
 	"recorder-server/internal/services"
 	"recorder-server/internal/state"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -20,6 +22,47 @@ func main() {
 	// Załaduj konfigurację
 	cfg := config.LoadConfig()
 	log.Printf("Konfiguracja załadowana: Port=%s, OBS URL=%s", cfg.Server.Port, cfg.OBS.URL)
+
+	// Inicjalizacja Database Manager
+	dbManager := database.GetManager()
+	
+	// Sprawdź czy istnieje konfiguracja bazy danych
+	dbConfig, err := config.LoadDatabaseConfig()
+	needsSetup := err != nil
+	
+	if !needsSetup {
+		// Konfiguracja istnieje - inicjalizuj normalnie
+		if err := dbManager.Initialize(); err != nil {
+			log.Println("Ostrzeżenie: Błąd inicjalizacji Database Manager:", err)
+			needsSetup = true
+		} else {
+			log.Println("Database Manager zainicjalizowany")
+			
+			// Wykonaj migrację dla aktualnej bazy
+			log.Println("Wykonywanie migracji bazy danych...")
+			if err := dbManager.AutoMigrate(models.GetAllModels()...); err != nil {
+				log.Printf("OSTRZEŻENIE: Błąd migracji bazy danych: %v", err)
+			} else {
+				log.Printf("Migracja zakończona pomyślnie dla bazy: %s", dbManager.GetCurrentDatabaseName())
+			}
+			
+			// Wczytaj aktywną sesję
+			db := dbManager.GetDB()
+			var activeSession models.ActiveSession
+			if err := db.Preload("Game").Preload("GamePart").First(&activeSession).Error; err == nil {
+				if activeSession.GameID != nil {
+					log.Printf("Aktywna sesja: Game ID=%d", *activeSession.GameID)
+					if activeSession.GamePartID != nil {
+						log.Printf("Aktywna część meczu: GamePart ID=%d", *activeSession.GamePartID)
+					}
+				} else {
+					log.Println("Brak aktywnej sesji nagrywania")
+				}
+			}
+		}
+	}
+	
+	defer dbManager.Close()
 
 	// Inicjalizacja stanu aplikacji
 	appState := state.NewAppState(cfg.Recording.AllCameras)
@@ -33,24 +76,6 @@ func main() {
 	timerService := services.NewTimerService(socketService)
 	log.Println("Timer serwis zainicjalizowany")
 
-	// Inicjalizacja Database Manager
-	dbManager := database.GetManager()
-	if err := dbManager.Initialize(); err != nil {
-		log.Fatal("Błąd inicjalizacji Database Manager:", err)
-	}
-	log.Println("Database Manager zainicjalizowany")
-	
-	// Wykonaj migrację modeli dla aktualnej bazy
-	log.Println("Wykonywanie migracji bazy danych...")
-	if err := dbManager.AutoMigrate(models.GetAllModels()...); err != nil {
-		log.Printf("OSTRZEŻENIE: Błąd migracji bazy danych: %v", err)
-	} else {
-		log.Printf("Migracja zakończona pomyślnie dla bazy: %s", dbManager.GetCurrentDatabaseName())
-	}
-	
-	// Zamknij połączenia z bazami przy wyjściu
-	defer dbManager.Close()
-
 	// Inicjalizacja klienta OBS WebSocket
 	obsClient := services.NewOBSClient(cfg.OBS.URL, cfg.OBS.Password)
 	go obsClient.Connect()
@@ -58,6 +83,8 @@ func main() {
 	log.Println("OBS WebSocket klient zainicjalizowany")
 
 	// Inicjalizacja handlerów
+	setupHandler := handlers.NewSetupHandler(dbManager)
+	sessionHandler := handlers.NewSessionHandler(dbManager)
 	pageHandler := handlers.NewPageHandler()
 	cameraHandler := handlers.NewCameraHandler(appState, socketService)
 	obsHandler := handlers.NewOBSHandler(obsClient)
@@ -68,16 +95,28 @@ func main() {
 	// Router
 	router := mux.NewRouter()
 
-	// Socket.IO - MUSI BYĆ PRZED INNYMI ROUTAMI
+	// Socket.IO - MUSI BYĆ PRZED MIDDLEWARE
 	router.Handle("/socket.io/", socketService.GetServer())
 
-	// Strony WWW
-	router.HandleFunc("/", pageHandler.Index).Methods("GET")
+	// Setup routes - BEZ middleware (zawsze dostępne)
+	setupRouter := router.PathPrefix("/setup").Subrouter()
+	setupRouter.HandleFunc("", setupHandler.ShowSetupPage).Methods("GET")
+	setupRouter.HandleFunc("/", setupHandler.ShowSetupPage).Methods("GET")
+	setupRouter.HandleFunc("/create-preset", setupHandler.ShowCreatePresetPage).Methods("GET")
+	setupRouter.HandleFunc("/create-preset", setupHandler.CreatePreset).Methods("POST")
+	setupRouter.HandleFunc("/create-competition", setupHandler.ShowCreateCompetitionPage).Methods("GET")
+	setupRouter.HandleFunc("/create-competition", setupHandler.CreateCompetition).Methods("POST")
 
-	// Pliki statyczne
+	// Pliki statyczne - BEZ middleware
 	router.PathPrefix("/static/").Handler(
 		http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))),
 	)
+
+	// Middleware sprawdzający konfigurację
+	router.Use(checkSetupMiddleware(dbConfig))
+
+	// Strony WWW
+	router.HandleFunc("/", pageHandler.Index).Methods("GET")
 
 	// API - Kamery
 	router.HandleFunc("/api/start-recording", cameraHandler.StartRecording).Methods("POST")
@@ -105,17 +144,52 @@ func main() {
 	router.HandleFunc("/api/database/create", databaseHandler.CreateDatabase).Methods("POST")
 	router.HandleFunc("/api/database/delete", databaseHandler.DeleteDatabase).Methods("DELETE")
 
+	// API - Session
+	router.HandleFunc("/api/session/current", sessionHandler.GetActiveSession).Methods("GET")
+	router.HandleFunc("/api/session/set-game", sessionHandler.SetActiveGame).Methods("POST")
+	router.HandleFunc("/api/session/set-gamepart", sessionHandler.SetActiveGamePart).Methods("POST")
+	router.HandleFunc("/api/session/clear", sessionHandler.ClearActiveSession).Methods("POST")
+
 	// Start serwera
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
 	log.Printf("=================================")
 	log.Printf("Serwer uruchomiony na: http://%s", addr)
 	log.Printf("Panel WWW: http://localhost:%s", cfg.Server.Port)
 	log.Printf("Socket.IO: ws://localhost:%s/socket.io/", cfg.Server.Port)
-	log.Printf("Aktualna baza danych: %s", dbManager.GetCurrentDatabaseName())
+	if !needsSetup && dbConfig != nil {
+		log.Printf("Aktualna baza danych: %s", dbManager.GetCurrentDatabaseName())
+	} else {
+		log.Printf("⚠️  WYMAGANA KONFIGURACJA - przejdź do /setup")
+	}
 	log.Printf("=================================")
 
 	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatal("Błąd uruchomienia serwera:", err)
+	}
+}
+
+// checkSetupMiddleware - middleware sprawdzający czy aplikacja jest skonfigurowana
+func checkSetupMiddleware(dbConfig *config.DatabaseConfig) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Pomiń sprawdzanie dla ścieżek setup i static
+			if strings.HasPrefix(r.URL.Path, "/setup") ||
+				strings.HasPrefix(r.URL.Path, "/static") ||
+				strings.HasPrefix(r.URL.Path, "/socket.io") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Sprawdź czy istnieje konfiguracja
+			if dbConfig == nil {
+				if _, err := os.Stat("database_config.json"); os.IsNotExist(err) {
+					http.Redirect(w, r, "/setup", http.StatusTemporaryRedirect)
+					return
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 

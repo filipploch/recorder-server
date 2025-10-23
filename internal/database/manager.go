@@ -11,7 +11,6 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	
 )
 
 // Manager - zarządza wieloma bazami danych
@@ -74,11 +73,17 @@ func (m *Manager) connectToDatabase(dbName string) error {
 		return nil
 	}
 
+	// Określ ścieżkę do katalogu baz danych
+	dbPath := "./databases" // Domyślna ścieżka
+	if m.dbConfig != nil && m.dbConfig.DatabasesPath != "" {
+		dbPath = m.dbConfig.DatabasesPath
+	}
+
 	// Ścieżka do pliku bazy
-	dbPath := filepath.Join(m.dbConfig.DatabasesPath, dbName+".db")
+	fullPath := filepath.Join(dbPath, dbName+".db")
 
 	// Otwórz połączenie z GORM
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(fullPath), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent), // Zmień na logger.Info dla debugowania
 	})
 	if err != nil {
@@ -90,7 +95,7 @@ func (m *Manager) connectToDatabase(dbName string) error {
 	m.currentDB = db
 	m.currentName = dbName
 
-	log.Printf("Database: Połączono z bazą: %s (%s)", dbName, dbPath)
+	log.Printf("Database: Połączono z bazą: %s (%s)", dbName, fullPath)
 	return nil
 }
 
@@ -105,19 +110,7 @@ func (m *Manager) SwitchDatabase(dbName string) error {
 	}
 
 	// Aktualizuj konfigurację
-	m.dbConfig.CurrentDatabase = dbName
-
-	// Dodaj do listy dostępnych jeśli jeszcze nie ma
-	found := false
-	for _, name := range m.dbConfig.AvailableDatabases {
-		if name == dbName {
-			found = true
-			break
-		}
-	}
-	if !found {
-		m.dbConfig.AvailableDatabases = append(m.dbConfig.AvailableDatabases, dbName)
-	}
+	m.dbConfig.SetCurrentCompetition(dbName)
 
 	// Zapisz konfigurację
 	if err := config.SaveDatabaseConfig(m.dbConfig); err != nil {
@@ -142,14 +135,19 @@ func (m *Manager) GetCurrentDatabaseName() string {
 	return m.currentName
 }
 
-// GetAvailableDatabases - zwraca listę dostępnych baz
+// GetAvailableDatabases - zwraca listę dostępnych baz (rozgrywek)
 func (m *Manager) GetAvailableDatabases() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
-	// Zwróć kopię aby uniknąć race conditions
-	databases := make([]string, len(m.dbConfig.AvailableDatabases))
-	copy(databases, m.dbConfig.AvailableDatabases)
+	if m.dbConfig == nil {
+		return []string{}
+	}
+	
+	databases := make([]string, len(m.dbConfig.Competitions))
+	for i, comp := range m.dbConfig.Competitions {
+		databases[i] = comp.ID
+	}
 	return databases
 }
 
@@ -158,14 +156,27 @@ func (m *Manager) CreateDatabase(dbName string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// Określ ścieżkę do katalogu baz danych
+	dbPath := "./databases" // Domyślna ścieżka
+	if m.dbConfig != nil && m.dbConfig.DatabasesPath != "" {
+		dbPath = m.dbConfig.DatabasesPath
+	}
+	
+	// Utwórz katalog jeśli nie istnieje
+	if err := os.MkdirAll(dbPath, 0755); err != nil {
+		return fmt.Errorf("błąd tworzenia katalogu baz danych: %w", err)
+	}
+
+	// Pełna ścieżka do pliku bazy
+	fullPath := filepath.Join(dbPath, dbName+".db")
+	
 	// Sprawdź czy baza już istnieje
-	dbPath := filepath.Join(m.dbConfig.DatabasesPath, dbName+".db")
-	if _, err := os.Stat(dbPath); err == nil {
+	if _, err := os.Stat(fullPath); err == nil {
 		return fmt.Errorf("baza danych %s już istnieje", dbName)
 	}
 
 	// Utwórz nową bazę (otwarcie połączenia utworzy plik)
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(fullPath), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
@@ -174,14 +185,6 @@ func (m *Manager) CreateDatabase(dbName string) error {
 
 	// Zapisz w cache
 	m.databases[dbName] = db
-
-	// Dodaj do listy dostępnych
-	m.dbConfig.AvailableDatabases = append(m.dbConfig.AvailableDatabases, dbName)
-
-	// Zapisz konfigurację
-	if err := config.SaveDatabaseConfig(m.dbConfig); err != nil {
-		log.Printf("Database: Ostrzeżenie - nie udało się zapisać konfiguracji: %v", err)
-	}
 
 	log.Printf("Database: Utworzono nową bazę: %s", dbName)
 	return nil
@@ -212,14 +215,14 @@ func (m *Manager) DeleteDatabase(dbName string) error {
 		return fmt.Errorf("błąd usuwania pliku bazy: %w", err)
 	}
 
-	// Usuń z listy dostępnych
-	newList := []string{}
-	for _, name := range m.dbConfig.AvailableDatabases {
-		if name != dbName {
-			newList = append(newList, name)
+	// Usuń z konfiguracji
+	newCompetitions := []config.CompetitionReference{}
+	for _, comp := range m.dbConfig.Competitions {
+		if comp.ID != dbName {
+			newCompetitions = append(newCompetitions, comp)
 		}
 	}
-	m.dbConfig.AvailableDatabases = newList
+	m.dbConfig.Competitions = newCompetitions
 
 	// Zapisz konfigurację
 	if err := config.SaveDatabaseConfig(m.dbConfig); err != nil {
