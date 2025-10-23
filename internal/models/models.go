@@ -200,6 +200,7 @@ type Game struct {
 	FieldID   uint   `json:"field_id"`
 	DateTime  string `json:"date_time"` // Format: "2025-10-17_20:45"
 	LegNumber int    `gorm:"default:1" json:"leg_number"` // 1 lub 2 (dla dwumeczów)
+	Round    *int   `json:"round"` 
 	
 	// Relacje
 	Group *Group `gorm:"foreignKey:GroupID" json:"group,omitempty"`
@@ -536,6 +537,20 @@ type GameCamera struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+// ActiveSession - aktywna sesja nagrywania (singleton - max 1 rekord)
+type ActiveSession struct {
+	ID         uint  `gorm:"primaryKey" json:"id"`
+	GameID     *uint `json:"game_id"`      // nullable
+	GamePartID *uint `json:"game_part_id"` // nullable
+	
+	// Relacje
+	Game     *Game     `gorm:"foreignKey:GameID" json:"game,omitempty"`
+	GamePart *GamePart `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
+	
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // GetAllModels - zwraca slice wszystkich modeli do migracji
 func GetAllModels() []interface{} {
 	return []interface{}{
@@ -571,5 +586,6 @@ func GetAllModels() []interface{} {
 		&GameTVStaff{},
 		&Settings{},
 		&GameCamera{},
+		&ActiveSession{},
 	}
 }
