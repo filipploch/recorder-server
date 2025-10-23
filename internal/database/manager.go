@@ -109,12 +109,18 @@ func (m *Manager) SwitchDatabase(dbName string) error {
 		return err
 	}
 
-	// Aktualizuj konfigurację
-	m.dbConfig.SetCurrentCompetition(dbName)
+	// Aktualizuj konfigurację - sprawdź czy dbConfig istnieje
+	if m.dbConfig != nil {
+		if !m.dbConfig.SetCurrentCompetition(dbName) {
+			log.Printf("Database: Ostrzeżenie - baza %s nie znaleziona w konfiguracji", dbName)
+		}
 
-	// Zapisz konfigurację
-	if err := config.SaveDatabaseConfig(m.dbConfig); err != nil {
-		log.Printf("Database: Ostrzeżenie - nie udało się zapisać konfiguracji: %v", err)
+		// Zapisz konfigurację
+		if err := config.SaveDatabaseConfig(m.dbConfig); err != nil {
+			log.Printf("Database: Ostrzeżenie - nie udało się zapisać konfiguracji: %v", err)
+		}
+	} else {
+		log.Printf("Database: Ostrzeżenie - dbConfig jest nil, baza przełączona ale konfiguracja nie zapisana")
 	}
 
 	log.Printf("Database: Przełączono na bazę: %s", dbName)
