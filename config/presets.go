@@ -32,10 +32,13 @@ type CompetitionPreset struct {
 }
 
 // GamePartPreset - szablon części meczu
+// ZMIANY:
+// - Dodano pole IsAddedTimeAllowed (bool)
 type GamePartPreset struct {
-	Name      string `json:"name"`       // Nazwa części
-	Length    *int   `json:"length"`     // nullable - długość w sekundach
-	TimeGroup *int   `json:"time_group"` // nullable - grupa sumowania czasu
+	Name               string `json:"name"`                 // Nazwa części
+	Length             *int   `json:"length"`               // nullable - długość w sekundach
+	TimeGroup          *int   `json:"time_group"`           // nullable - grupa sumowania czasu
+	IsAddedTimeAllowed bool   `json:"is_added_time_allowed"` // czy dozwolony czas dodatkowy
 }
 
 // EventTypePreset - szablon typu wydarzenia
