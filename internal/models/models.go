@@ -129,11 +129,14 @@ type Field struct {
 }
 
 // Competition - rozgrywki (liga, puchar, mistrzostwa)
+// ZMIANY:
+// - Usunięto pole CompetitionType
+// - Dodano pole Data (string, type:text) - przechowuje konfigurację rozgrywek w formacie JSON
 type Competition struct {
-	ID              uint   `gorm:"primaryKey" json:"id"`
-	Name            string `gorm:"not null" json:"name"`
-	Season          string `json:"season"` // np. "2024/2025"
-	CompetitionType string `json:"competition_type"` // "league", "cup", "tournament"
+	ID     uint   `gorm:"primaryKey" json:"id"`
+	Name   string `gorm:"not null" json:"name"`
+	Season string `json:"season"` // np. "2024/2025"
+	Data   string `gorm:"type:text" json:"data"` // JSON z konfiguracją rozgrywek (preset, algorytmy, etc.)
 	
 	// Relacje
 	Stages []Stage `gorm:"foreignKey:CompetitionID" json:"stages,omitempty"`
@@ -162,11 +165,12 @@ type Stage struct {
 }
 
 // Group - grupa drużyn (liga, grupa pucharowa, para w pucharze)
+// ZMIANY:
+// - Usunięto pole IsTwoLeg
 type Group struct {
-	ID       uint   `gorm:"primaryKey" json:"id"`
-	StageID  uint   `json:"stage_id"`
-	Name     string `json:"name"` // np. "Grupa A", "Para 1", "Tabela ligowa"
-	IsTwoLeg bool   `gorm:"default:false" json:"is_two_leg"` // czy dwumecz
+	ID      uint   `gorm:"primaryKey" json:"id"`
+	StageID uint   `json:"stage_id"`
+	Name    string `json:"name"` // np. "Grupa A", "Para 1", "Tabela ligowa"
 	
 	// Relacje
 	Stage      Stage       `gorm:"foreignKey:StageID" json:"stage,omitempty"`
@@ -194,16 +198,19 @@ type GroupTeam struct {
 }
 
 // Game - mecz
+// ZMIANY:
+// - GroupID nie jest już nullable - każdy mecz musi należeć do grupy
+// - Zespoły biorące udział w meczu są określane przez tabelę GameTeam (nie bezpośrednio w Game)
 type Game struct {
 	ID        uint    `gorm:"primaryKey" json:"id"`
 	ForeignID *string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
-	GroupID   *uint   `json:"group_id"` // nullable - grupa/para do której należy mecz
+	GroupID   uint    `json:"group_id"` // grupa do której należy mecz (wymagane)
 	FieldID   uint    `json:"field_id"`
 	DateTime  string  `json:"date_time"` // Format: "2025-10-17_20:45"
 	Round     int     `gorm:"default:1" json:"round"` // Runda/kolejka
 	
 	// Relacje
-	Group     *Group     `gorm:"foreignKey:GroupID" json:"group,omitempty"`
+	Group     Group      `gorm:"foreignKey:GroupID" json:"group,omitempty"`
 	Field     Field      `gorm:"foreignKey:FieldID" json:"field,omitempty"`
 	GameParts []GamePart `gorm:"foreignKey:GameID" json:"game_parts,omitempty"`
 	
@@ -411,6 +418,7 @@ type KitColor struct {
 // ZMIANY:
 // - Usunięto pole IsCumulative
 // - Dodano pole GameValueGroup (*int, nullable)
+// - Dodano pole IsDSQ (bool, default: false)
 type GamePartValue struct {
 	ID             uint  `gorm:"primaryKey" json:"id"`
 	GameID         uint  `json:"game_id"`
@@ -418,9 +426,10 @@ type GamePartValue struct {
 	TeamID         uint  `json:"team_id"`
 	ValueTypeID    uint  `json:"value_type_id"`
 	Value          int   `json:"value"`           // wartość statystyki
-	GameValueGroup *int  `json:"game_value_group"` // NOWE POLE - nullable, grupa wartości
+	GameValueGroup *int  `json:"game_value_group"` // nullable, grupa wartości
 	MinValue       *int  `json:"min_value"`       // nullable - minimalna dopuszczalna wartość
 	MaxValue       *int  `json:"max_value"`       // nullable - maksymalna dopuszczalna wartość
+	IsDSQ          bool  `gorm:"default:false" json:"is_dsq"` // czy drużyna została zdyskwalifikowana
 	
 	// Relacje
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
@@ -440,6 +449,7 @@ type GameValue struct {
 	TeamID      uint `json:"team_id"`
 	ValueTypeID uint `json:"value_type_id"`
 	Value       int  `json:"value"` // aktualna obliczona wartość
+	IsDSQ       bool `gorm:"default:false" json:"is_dsq"` // czy drużyna została zdyskwalifikowana
 	
 	// Relacje
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
@@ -524,12 +534,17 @@ type GameTVStaff struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Settings - ustawienia aplikacji (singleton - tylko jeden rekord)
-type Settings struct {
-	ID          uint   `gorm:"primaryKey" json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Data        string `gorm:"type:text" json:"data"` // JSON przechowywany jako text
+// GameTeam - zespół w meczu
+// Nowy model pozwalający na tworzenie meczów bez określania zespołów
+type GameTeam struct {
+	ID     uint `gorm:"primaryKey" json:"id"`
+	GameID uint `json:"game_id"`
+	TeamID uint `json:"team_id"`
+	Side   int  `gorm:"not null" json:"side"` // 1=gospodarze, 2=goście
+	
+	// Relacje
+	Game Game `gorm:"foreignKey:GameID" json:"game,omitempty"`
+	Team Team `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -581,6 +596,7 @@ func GetAllModels() []interface{} {
 		&Group{},
 		&GroupTeam{},
 		&Game{},
+		&GameTeam{},
 		&GamePart{},
 		&TVStaffRole{},
 		&TVStaff{},
@@ -598,7 +614,6 @@ func GetAllModels() []interface{} {
 		&GameCoach{},
 		&GameReferee{},
 		&GameTVStaff{},
-		&Settings{},
 		&GameCamera{},
 		&ActiveSession{},
 	}
