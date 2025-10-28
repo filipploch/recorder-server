@@ -194,17 +194,18 @@ type GroupTeam struct {
 }
 
 // Game - mecz
-// ZMIANA: Usunięto pole LegNumber
 type Game struct {
-	ID       uint   `gorm:"primaryKey" json:"id"`
-	GroupID  *uint  `json:"group_id"` // nullable - grupa/para do której należy mecz
-	FieldID  uint   `json:"field_id"`
-	DateTime string `json:"date_time"` // Format: "2025-10-17_20:45"
-	Round    int    `gorm:"default:1" json:"round"` // Runda/kolejka
+	ID        uint    `gorm:"primaryKey" json:"id"`
+	ForeignID *string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
+	GroupID   *uint   `json:"group_id"` // nullable - grupa/para do której należy mecz
+	FieldID   uint    `json:"field_id"`
+	DateTime  string  `json:"date_time"` // Format: "2025-10-17_20:45"
+	Round     int     `gorm:"default:1" json:"round"` // Runda/kolejka
 	
 	// Relacje
-	Group *Group `gorm:"foreignKey:GroupID" json:"group,omitempty"`
-	Field Field  `gorm:"foreignKey:FieldID" json:"field,omitempty"`
+	Group     *Group     `gorm:"foreignKey:GroupID" json:"group,omitempty"`
+	Field     Field      `gorm:"foreignKey:FieldID" json:"field,omitempty"`
+	GameParts []GamePart `gorm:"foreignKey:GameID" json:"game_parts,omitempty"`
 	
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -213,18 +214,20 @@ type Game struct {
 
 // GamePart - część meczu (kwarta, połowa, etc.)
 // ZMIANY:
-// - Usunięto pole MinPoints
-// - Dodano pole IsAddedTimeAllowed (bool)
-// - Dodano pole AddedTime (*int, nullable)
+// - Dodano pole GameID (uint, relacja do Game)
 type GamePart struct {
 	ID                 uint    `gorm:"primaryKey" json:"id"`
+	GameID             uint    `json:"game_id"` // NOWE POLE - relacja do meczu
 	Name               string  `gorm:"not null" json:"name"`
 	Length             *int    `json:"length"`     // nullable - czas w sekundach
-	MatchOrder         int     `gorm:"unique;not null" json:"match_order"`
+	MatchOrder         int     `gorm:"not null" json:"match_order"`
 	TimeGroup          *uint   `json:"time_group"`  // nullable - grupa do sumowania czasów
 	ActualTime         int     `gorm:"default:0" json:"actual_time"` // ostatnio zapisany czas w sekundach
 	IsAddedTimeAllowed bool    `gorm:"default:false" json:"is_added_time_allowed"` // czy dozwolony czas dodatkowy
 	AddedTime          *int    `json:"added_time"` // nullable - czas dodatkowy w sekundach
+	
+	// Relacje
+	Game Game `gorm:"foreignKey:GameID" json:"game,omitempty"` // NOWA RELACJA
 	
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -261,10 +264,11 @@ type TVStaff struct {
 }
 
 // ValueType - typ wartości (bramki, faule, etc.)
+// ZMIANY:
+// - Usunięto pole ShortName
 type ValueType struct {
-	ID        uint   `gorm:"primaryKey" json:"id"`
-	Name      string `gorm:"not null" json:"name"`      // np: "Bramki"
-	ShortName string `gorm:"not null" json:"short_name"` // np: "B"
+	ID   uint   `gorm:"primaryKey" json:"id"`
+	Name string `gorm:"not null" json:"name"` // np: "Bramki"
 	
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -405,18 +409,18 @@ type KitColor struct {
 
 // GamePartValue - wartość statystyki dla drużyny w części meczu
 // ZMIANY:
-// - Dodano pole MinValue (*int, nullable)
-// - Dodano pole MaxValue (*int, nullable)
+// - Usunięto pole IsCumulative
+// - Dodano pole GameValueGroup (*int, nullable)
 type GamePartValue struct {
-	ID           uint  `gorm:"primaryKey" json:"id"`
-	GameID       uint  `json:"game_id"`
-	GamePartID   uint  `json:"game_part_id"`
-	TeamID       uint  `json:"team_id"`
-	ValueTypeID  uint  `json:"value_type_id"`
-	Value        int   `json:"value"`                             // wartość statystyki
-	IsCumulative bool  `gorm:"default:true" json:"is_cumulative"` // czy sumować z poprzednimi częściami
-	MinValue     *int  `json:"min_value"` // nullable - minimalna dopuszczalna wartość
-	MaxValue     *int  `json:"max_value"` // nullable - maksymalna dopuszczalna wartość
+	ID             uint  `gorm:"primaryKey" json:"id"`
+	GameID         uint  `json:"game_id"`
+	GamePartID     uint  `json:"game_part_id"`
+	TeamID         uint  `json:"team_id"`
+	ValueTypeID    uint  `json:"value_type_id"`
+	Value          int   `json:"value"`           // wartość statystyki
+	GameValueGroup *int  `json:"game_value_group"` // NOWE POLE - nullable, grupa wartości
+	MinValue       *int  `json:"min_value"`       // nullable - minimalna dopuszczalna wartość
+	MaxValue       *int  `json:"max_value"`       // nullable - maksymalna dopuszczalna wartość
 	
 	// Relacje
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
