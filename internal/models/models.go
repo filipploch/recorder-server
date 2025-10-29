@@ -133,10 +133,12 @@ type Field struct {
 // - Usunięto pole CompetitionType
 // - Dodano pole Data (string, type:text) - przechowuje konfigurację rozgrywek w formacie JSON
 type Competition struct {
-	ID     uint   `gorm:"primaryKey" json:"id"`
-	Name   string `gorm:"not null" json:"name"`
-	Season string `json:"season"` // np. "2024/2025"
-	Data   string `gorm:"type:text" json:"data"` // JSON z konfiguracją rozgrywek (preset, algorytmy, etc.)
+	ID     				uint   `gorm:"primaryKey" json:"id"`
+	Name   				string `gorm:"not null" json:"name"`
+	Season 				string `json:"season"` // np. "2024/2025"
+	Data   				string `gorm:"type:text" json:"data"` // JSON z konfiguracją rozgrywek (preset, algorytmy, etc.)
+	ScraperGroup        *string `json:"scraper_group"`         // NOWE
+    TableOrderAlgorithm *string `json:"table_order_algorithm"` // NOWE
 	
 	// Relacje
 	Stages []Stage `gorm:"foreignKey:CompetitionID" json:"stages,omitempty"`

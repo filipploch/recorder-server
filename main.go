@@ -8,8 +8,10 @@ import (
 	"recorder-server/internal/database"
 	"recorder-server/internal/handlers"
 	"recorder-server/internal/models"
+	"recorder-server/internal/scrapers"
 	"recorder-server/internal/services"
 	"recorder-server/internal/state"
+	"recorder-server/internal/tables"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -63,6 +65,14 @@ func main() {
 	}
 	
 	defer dbManager.Close()
+	
+	// ===== NOWE: Inicjalizacja scraperów =====
+	log.Println("Inicjalizacja scraperów...")
+	scrapers.RegisterExampleScrapers() // Rejestruje dostępne scrapery
+	
+	// ===== NOWE: Inicjalizacja algorytmów tabel =====
+	log.Println("Inicjalizacja algorytmów tabel...")
+	tables.RegisterDefaultAlgorithms() // Rejestruje dostępne algorytmy
 
 	// Inicjalizacja stanu aplikacji
 	appState := state.NewAppState(cfg.Recording.AllCameras)
@@ -81,6 +91,10 @@ func main() {
 	go obsClient.Connect()
 	setupOBSEventHandlers(obsClient)
 	log.Println("OBS WebSocket klient zainicjalizowany")
+	
+	// ===== NOWE: Inicjalizacja nowych serwisów =====
+	scraperService := services.NewScraperService(dbManager)
+	tableService := services.NewTableService(dbManager)
 
 	// Inicjalizacja handlerów
 	setupHandler := handlers.NewSetupHandler(dbManager)
@@ -90,6 +104,9 @@ func main() {
 	obsHandler := handlers.NewOBSHandler(obsClient)
 	timerHandler := handlers.NewTimerHandler(timerService)
 	databaseHandler := handlers.NewDatabaseHandler(dbManager)
+	// ===== NOWE: Inicjalizacja nowych handlerów =====
+	scraperHandler := handlers.NewScraperHandler(scraperService)
+	tableHandler := handlers.NewTableHandler(tableService)
 	log.Println("Handlery HTTP zainicjalizowane")
 
 	// Router
@@ -149,6 +166,22 @@ func main() {
 	router.HandleFunc("/api/session/set-game", sessionHandler.SetActiveGame).Methods("POST")
 	router.HandleFunc("/api/session/set-gamepart", sessionHandler.SetActiveGamePart).Methods("POST")
 	router.HandleFunc("/api/session/clear", sessionHandler.ClearActiveSession).Methods("POST")
+	
+	// ===== NOWE: API - Scrapers =====
+	router.HandleFunc("/api/scrape/teams", scraperHandler.ScrapeTeams).Methods("POST")
+	router.HandleFunc("/api/scrape/players", scraperHandler.ScrapePlayers).Methods("POST")
+	router.HandleFunc("/api/scrape/games", scraperHandler.ScrapeGames).Methods("POST")
+	router.HandleFunc("/api/scrape/available", scraperHandler.GetAvailableScrapers).Methods("GET")
+	router.HandleFunc("/api/scrape/competition/info", scraperHandler.GetCompetitionScraperInfo).Methods("GET")
+	
+	// ===== NOWE: API - Tables =====
+	router.HandleFunc("/api/tables/group", tableHandler.CalculateTableForGroup).Methods("GET")
+	router.HandleFunc("/api/tables/stage", tableHandler.CalculateTableForStage).Methods("GET")
+	router.HandleFunc("/api/tables/competition", tableHandler.CalculateTableForCompetition).Methods("GET")
+	router.HandleFunc("/api/tables/algorithms", tableHandler.GetAvailableAlgorithms).Methods("GET")
+	router.HandleFunc("/api/tables/competition/algorithm", tableHandler.GetCompetitionAlgorithmInfo).Methods("GET")
+	router.HandleFunc("/api/tables/compare", tableHandler.CompareTeams).Methods("GET")
+
 
 	// Start serwera
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
@@ -161,6 +194,13 @@ func main() {
 	} else {
 		log.Printf("⚠️  WYMAGANA KONFIGURACJA - przejdź do /setup")
 	}
+	
+	// ===== NOWE: Info o scraperach i algorytmach =====
+	availableScrapers := scraperService.GetAvailableScrapers()
+	log.Printf("Dostępne scrapery: %v", availableScrapers)
+	availableAlgorithms := tableService.GetAvailableAlgorithms()
+	log.Printf("Dostępne algorytmy tabel: %v", availableAlgorithms)
+	
 	log.Printf("=================================")
 
 	if err := http.ListenAndServe(addr, router); err != nil {
