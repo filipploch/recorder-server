@@ -45,27 +45,27 @@ func (s *ExampleScraper) ScrapeGames(competitionID string, stageID uint) ([]mode
 	return nil, fmt.Errorf("not implemented: %s game scraper", s.name)
 }
 
-// PZPNScraper - przykład konkretnego scrapera dla PZPN
-type PZPNScraper struct {
+// MZPNScraper - przykład konkretnego scrapera dla MZPN
+type MZPNScraper struct {
 	*ExampleScraper
 	baseURL string
 }
 
-// NewPZPNScraper - tworzy scraper dla PZPN
-func NewPZPNScraper() *PZPNScraper {
-	return &PZPNScraper{
-		ExampleScraper: NewExampleScraper("PZPN"),
-		baseURL:        "https://www.pzpn.pl",
+// NewMZPNScraper - tworzy scraper dla MZPN
+func NewMZPNScraper() *MZPNScraper {
+	return &MZPNScraper{
+		ExampleScraper: NewExampleScraper("MZPN"),
+		baseURL:        "https://www.mzpn.pl",
 	}
 }
 
-// ScrapeTeams - implementacja specyficzna dla PZPN
-func (s *PZPNScraper) ScrapeTeams(competitionID string) ([]models.Team, error) {
-	// TODO: Implementacja scrapowania drużyn z pzpn.pl
+// ScrapeTeams - implementacja specyficzna dla MZPN
+func (s *MZPNScraper) ScrapeTeams(competitionID string) ([]models.Team, error) {
+	// TODO: Implementacja scrapowania drużyn z mzpn.pl
 	// url := fmt.Sprintf("%s/competitions/%s/teams", s.baseURL, competitionID)
 	// ... użycie biblioteki do scrapowania
 	
-	return nil, fmt.Errorf("PZPN team scraper not implemented yet")
+	return nil, fmt.Errorf("MZPN team scraper not implemented yet")
 }
 
 // EkstraklasaScraper - przykład konkretnego scrapera dla Ekstraklasy
@@ -74,24 +74,17 @@ type EkstraklasaScraper struct {
 	baseURL string
 }
 
-// NewEkstraklasaScraper - tworzy scraper dla Ekstraklasy
-func NewEkstraklasaScraper() *EkstraklasaScraper {
-	return &EkstraklasaScraper{
-		ExampleScraper: NewExampleScraper("Ekstraklasa"),
-		baseURL:        "https://ekstraklasa.org",
-	}
-}
 
-// FutsalPLScraper - przykład scrapera dla rozgrywek futsalu w Polsce
-type FutsalPLScraper struct {
+// NalffutsalScraper - przykład scrapera dla rozgrywek NALF
+type NalffutsalScraper struct {
 	*ExampleScraper
 	baseURL string
 }
 
-// NewFutsalPLScraper - tworzy scraper dla futsalu
-func NewFutsalPLScraper() *FutsalPLScraper {
-	return &FutsalPLScraper{
-		ExampleScraper: NewExampleScraper("Futsal PL"),
+// NewNalffutsalScraper - tworzy scraper dla NALF
+func NewNalffutsalScraper() *NalffutsalScraper {
+	return &NalffutsalScraper{
+		ExampleScraper: NewExampleScraper("Nalffutsal"),
 		baseURL:        "https://example-futsal.pl",
 	}
 }
@@ -101,27 +94,19 @@ func NewFutsalPLScraper() *FutsalPLScraper {
 func RegisterExampleScrapers() {
 	registry := GetRegistry()
 	
-	// Rejestracja scrapera PZPN
-	pzpnScraper := NewPZPNScraper()
-	registry.RegisterGroup("pzpn", &ScraperGroup{
-		TeamScraper:   pzpnScraper,
-		PlayerScraper: pzpnScraper,
-		GameScraper:   pzpnScraper,
+	// Rejestracja scrapera MZPN
+	mzpnScraper := NewMZPNScraper()
+	registry.RegisterGroup("mzpn", &ScraperGroup{
+		TeamScraper:   mzpnScraper,
+		PlayerScraper: mzpnScraper,
+		GameScraper:   mzpnScraper,
 	})
 	
-	// Rejestracja scrapera Ekstraklasy
-	ekstraklasaScraper := NewEkstraklasaScraper()
-	registry.RegisterGroup("ekstraklasa", &ScraperGroup{
-		TeamScraper:   ekstraklasaScraper,
-		PlayerScraper: ekstraklasaScraper,
-		GameScraper:   ekstraklasaScraper,
-	})
-	
-	// Rejestracja scrapera Futsal PL
-	futsalScraper := NewFutsalPLScraper()
-	registry.RegisterGroup("futsal_pl", &ScraperGroup{
-		TeamScraper:   futsalScraper,
-		PlayerScraper: futsalScraper,
-		GameScraper:   futsalScraper,
+	// Rejestracja scrapera Nalffutsal
+	nalffutsalScraper := NewNalffutsalScraper()
+	registry.RegisterGroup("nalffutsal", &ScraperGroup{
+		TeamScraper:   nalffutsalScraper,
+		PlayerScraper: nalffutsalScraper,
+		GameScraper:   nalffutsalScraper,
 	})
 }

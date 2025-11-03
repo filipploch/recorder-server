@@ -211,8 +211,9 @@ func showCurrent(dbManager *database.Manager) {
 		{"Coaches", &models.Coach{}},
 		{"Referees", &models.Referee{}},
 		{"Fields", &models.Field{}},
+		{"Competitions", &models.Competition{}},
 		{"Games", &models.Game{}},
-		{"Gameparts", &models.Gamepart{}},
+		{"GameParts", &models.GamePart{}},
 		{"TVStaff", &models.TVStaff{}},
 		{"Events", &models.Event{}},
 	}

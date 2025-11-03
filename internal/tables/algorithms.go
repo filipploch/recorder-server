@@ -86,20 +86,20 @@ func (a *StandardAlgorithm) CompareTeams(s1, s2 *TeamStanding, headToHeadGames [
 	return 0
 }
 
-// HeadToHeadAlgorithm - algorytm z uwzględnieniem meczów bezpośrednich
-type HeadToHeadAlgorithm struct{}
+// MZPNAlgorithm - algorytm z uwzględnieniem meczów bezpośrednich
+type MZPNAlgorithm struct{}
 
-func (a *HeadToHeadAlgorithm) GetName() string {
-	return "head_to_head"
+func (a *MZPNAlgorithm) GetName() string {
+	return "mzpn"
 }
 
-func (a *HeadToHeadAlgorithm) CalculateTable(groupID uint, teams []models.Team, games []models.Game) (*Table, error) {
+func (a *MZPNAlgorithm) CalculateTable(groupID uint, teams []models.Team, games []models.Game) (*Table, error) {
 	// TODO: Podobnie jak StandardAlgorithm, ale z uwzględnieniem meczów bezpośrednich
 	
-	return nil, fmt.Errorf("head_to_head algorithm not implemented yet")
+	return nil, fmt.Errorf("mzpn algorithm not implemented yet")
 }
 
-func (a *HeadToHeadAlgorithm) CompareTeams(s1, s2 *TeamStanding, headToHeadGames []models.Game) int {
+func (a *MZPNAlgorithm) CompareTeams(s1, s2 *TeamStanding, headToHeadGames []models.Game) int {
 	// Najpierw punkty
 	if s1.Points != s2.Points {
 		if s1.Points > s2.Points {
@@ -128,18 +128,18 @@ func (a *HeadToHeadAlgorithm) CompareTeams(s1, s2 *TeamStanding, headToHeadGames
 }
 
 // GoalDifferenceFirstAlgorithm - algorytm priorytetyzujący różnicę bramek
-type GoalDifferenceFirstAlgorithm struct{}
+type NalffutsalAlgorithm struct{}
 
-func (a *GoalDifferenceFirstAlgorithm) GetName() string {
-	return "goal_difference_first"
+func (a *NalffutsalAlgorithm) GetName() string {
+	return "nalffutsal"
 }
 
-func (a *GoalDifferenceFirstAlgorithm) CalculateTable(groupID uint, teams []models.Team, games []models.Game) (*Table, error) {
+func (a *NalffutsalAlgorithm) CalculateTable(groupID uint, teams []models.Team, games []models.Game) (*Table, error) {
 	// TODO: Implementacja
-	return nil, fmt.Errorf("goal_difference_first algorithm not implemented yet")
+	return nil, fmt.Errorf("nalffutsal algorithm not implemented yet")
 }
 
-func (a *GoalDifferenceFirstAlgorithm) CompareTeams(s1, s2 *TeamStanding, headToHeadGames []models.Game) int {
+func (a *NalffutsalAlgorithm) CompareTeams(s1, s2 *TeamStanding, headToHeadGames []models.Game) int {
 	// Najpierw różnica bramek (!)
 	if s1.GoalDifference != s2.GoalDifference {
 		if s1.GoalDifference > s2.GoalDifference {
@@ -165,6 +165,6 @@ func RegisterDefaultAlgorithms() {
 	registry := GetAlgorithmRegistry()
 	
 	registry.RegisterAlgorithm("standard", &StandardAlgorithm{})
-	registry.RegisterAlgorithm("head_to_head", &HeadToHeadAlgorithm{})
-	registry.RegisterAlgorithm("goal_difference_first", &GoalDifferenceFirstAlgorithm{})
+	registry.RegisterAlgorithm("mzpn", &MZPNAlgorithm{})
+	registry.RegisterAlgorithm("nalffutsal", &NalffutsalAlgorithm{})
 }

@@ -78,10 +78,10 @@ func (r *Registry) HasGroup(name string) bool {
 func (r *Registry) registerDefaultScrapers() {
 	// Przykład rejestracji - w przyszłości będą tu prawdziwe implementacje
 	
-	// r.RegisterGroup("pzpn", &ScraperGroup{
-	// 	TeamScraper:   &PZPNTeamScraper{},
-	// 	PlayerScraper: &PZPNPlayerScraper{},
-	// 	GameScraper:   &PZPNGameScraper{},
+	// r.RegisterGroup("mzpn", &ScraperGroup{
+	// 	TeamScraper:   &MZPNTeamScraper{},
+	// 	PlayerScraper: &MZPNPlayerScraper{},
+	// 	GameScraper:   &MZPNGameScraper{},
 	// })
 	
 	// r.RegisterGroup("ekstraklasa", &ScraperGroup{

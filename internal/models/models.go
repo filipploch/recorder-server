@@ -131,15 +131,16 @@ type Field struct {
 
 // Competition - rozgrywki (liga, puchar, mistrzostwa)
 // ZMIANY:
-// - Usunięto pole CompetitionType
-// - Dodano pole Data (string, type:text) - przechowuje konfigurację rozgrywek w formacie JSON
+// - Pole Data przemianowane na Variable - przechowuje zmienne konfiguracyjne rozgrywek w formacie JSON
+// - Dodano pole GameLogic (*string, nullable) - definiuje logikę gry dla rozgrywek
 type Competition struct {
-	ID     				uint   `gorm:"primaryKey" json:"id"`
-	Name   				string `gorm:"not null" json:"name"`
-	Season 				string `json:"season"` // np. "2024/2025"
-	Data   				string `gorm:"type:text" json:"data"` // JSON z konfiguracją rozgrywek (preset, algorytmy, etc.)
-	ScraperGroup        *string `json:"scraper_group"`         // NOWE
-    TableOrderAlgorithm *string `json:"table_order_algorithm"` // NOWE
+	ID                  uint    `gorm:"primaryKey" json:"id"`
+	Name                string  `gorm:"not null" json:"name"`
+	Season              string  `json:"season"` // np. "2024/2025"
+	Variable            string  `gorm:"type:text" json:"variable"` // JSON ze zmiennymi konfiguracyjnymi rozgrywek (preset, parametry, etc.)
+	GameLogic           *string `json:"game_logic"` // NOWE POLE - logika gry (nullable)
+	ScraperGroup        *string `json:"scraper_group"`
+	TableOrderAlgorithm *string `json:"table_order_algorithm"`
 	
 	// Relacje
 	Stages []Stage `gorm:"foreignKey:CompetitionID" json:"stages,omitempty"`
@@ -168,8 +169,6 @@ type Stage struct {
 }
 
 // Group - grupa drużyn (liga, grupa pucharowa, para w pucharze)
-// ZMIANY:
-// - Usunięto pole IsTwoLeg
 type Group struct {
 	ID      uint   `gorm:"primaryKey" json:"id"`
 	StageID uint   `json:"stage_id"`
@@ -201,17 +200,14 @@ type GroupTeam struct {
 }
 
 // Game - mecz
-// ZMIANY:
-// - GroupID nie jest już nullable - każdy mecz musi należeć do grupy
-// - Zespoły biorące udział w meczu są określane przez tabelę GameTeam (nie bezpośrednio w Game)
 type Game struct {
-	ID        	uint    `gorm:"primaryKey" json:"id"`
-	ForeignID 	*string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
-	GroupID   	uint    `json:"group_id"` // grupa do której należy mecz (wymagane)
-	FieldID   	uint    `json:"field_id"`
-	DateTime  	string  `json:"date_time"` // Format: "2025-10-17_20:45"
-	Round     	int     `gorm:"default:1" json:"round"` // Runda/kolejka
-	IsFinished	*bool	`json:"is_finished"` 
+	ID         uint    `gorm:"primaryKey" json:"id"`
+	ForeignID  *string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
+	GroupID    uint    `json:"group_id"` // grupa do której należy mecz (wymagane)
+	FieldID    uint    `json:"field_id"`
+	DateTime   string  `json:"date_time"` // Format: "2025-10-17_20:45"
+	Round      int     `gorm:"default:1" json:"round"` // Runda/kolejka
+	IsFinished *bool   `json:"is_finished"` // nil = nie rozpoczęty, false = trwa, true = zakończony
 	
 	// Relacje
 	Group     Group      `gorm:"foreignKey:GroupID" json:"group,omitempty"`
@@ -224,11 +220,9 @@ type Game struct {
 }
 
 // GamePart - część meczu (kwarta, połowa, etc.)
-// ZMIANY:
-// - Dodano pole GameID (uint, relacja do Game)
 type GamePart struct {
 	ID                 uint    `gorm:"primaryKey" json:"id"`
-	GameID             uint    `json:"game_id"` // NOWE POLE - relacja do meczu
+	GameID             uint    `json:"game_id"`
 	Name               string  `gorm:"not null" json:"name"`
 	Length             *int    `json:"length"`     // nullable - czas w sekundach
 	MatchOrder         int     `gorm:"not null" json:"match_order"`
@@ -238,7 +232,7 @@ type GamePart struct {
 	AddedTime          *int    `json:"added_time"` // nullable - czas dodatkowy w sekundach
 	
 	// Relacje
-	Game Game `gorm:"foreignKey:GameID" json:"game,omitempty"` // NOWA RELACJA
+	Game Game `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -275,8 +269,6 @@ type TVStaff struct {
 }
 
 // ValueType - typ wartości (bramki, faule, etc.)
-// ZMIANY:
-// - Usunięto pole ShortName
 type ValueType struct {
 	ID   uint   `gorm:"primaryKey" json:"id"`
 	Name string `gorm:"not null" json:"name"` // np: "Bramki"
@@ -419,10 +411,6 @@ type KitColor struct {
 }
 
 // GamePartValue - wartość statystyki dla drużyny w części meczu
-// ZMIANY:
-// - Usunięto pole IsCumulative
-// - Dodano pole GameValueGroup (*int, nullable)
-// - Dodano pole IsDSQ (bool, default: false)
 type GamePartValue struct {
 	ID             uint  `gorm:"primaryKey" json:"id"`
 	GameID         uint  `json:"game_id"`
@@ -539,7 +527,6 @@ type GameTVStaff struct {
 }
 
 // GameTeam - zespół w meczu
-// Nowy model pozwalający na tworzenie meczów bez określania zespołów
 type GameTeam struct {
 	ID     uint `gorm:"primaryKey" json:"id"`
 	GameID uint `json:"game_id"`
