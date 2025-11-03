@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"recorder-server/internal/database"
@@ -22,6 +23,23 @@ func NewScraperService(dbManager *database.Manager) *ScraperService {
 	}
 }
 
+// getScraperNameFromVariable - pobiera nazwę scrapera z pola Variable
+func (s *ScraperService) getScraperNameFromVariable(variable string) (string, error) {
+	var variableData map[string]interface{}
+	if err := json.Unmarshal([]byte(variable), &variableData); err != nil {
+		return "", fmt.Errorf("błąd parsowania Variable: %w", err)
+	}
+	
+	// Sprawdź czy istnieje pole scraper.name
+	if scraper, ok := variableData["scraper"].(map[string]interface{}); ok {
+		if name, ok := scraper["name"].(string); ok && name != "" {
+			return name, nil
+		}
+	}
+	
+	return "", fmt.Errorf("brak informacji o scraperze w Variable")
+}
+
 // ScrapeTeamsForCompetition - scrapuje drużyny dla danej konkurencji
 func (s *ScraperService) ScrapeTeamsForCompetition(competitionID uint, externalCompetitionID string) ([]models.Team, error) {
 	// Pobierz competition z bazy
@@ -31,16 +49,17 @@ func (s *ScraperService) ScrapeTeamsForCompetition(competitionID uint, externalC
 		return nil, fmt.Errorf("nie znaleziono competition: %w", err)
 	}
 	
-	// Sprawdź czy competition ma przypisany scraper
-	if competition.ScraperGroup == nil || *competition.ScraperGroup == "" {
-		return nil, fmt.Errorf("brak przypisanego scrapera dla competition ID=%d", competitionID)
+	// Pobierz nazwę scrapera z Variable
+	scraperName, err := s.getScraperNameFromVariable(competition.Variable)
+	if err != nil {
+		return nil, fmt.Errorf("brak przypisanego scrapera dla competition ID=%d: %w", competitionID, err)
 	}
 	
 	log.Printf("ScraperService: Pobieranie drużyn dla competition '%s' używając scrapera '%s'",
-		competition.Name, *competition.ScraperGroup)
+		competition.Name, scraperName)
 	
 	// Pobierz grupę scraperów
-	group, err := s.registry.GetGroup(*competition.ScraperGroup)
+	group, err := s.registry.GetGroup(scraperName)
 	if err != nil {
 		return nil, fmt.Errorf("błąd pobierania scrapera: %w", err)
 	}
@@ -90,16 +109,17 @@ func (s *ScraperService) ScrapePlayersForTeam(teamID uint, externalTeamID string
 		return nil, fmt.Errorf("nie znaleziono competition dla team: %w", err)
 	}
 	
-	// Sprawdź czy competition ma przypisany scraper
-	if competition.ScraperGroup == nil || *competition.ScraperGroup == "" {
-		return nil, fmt.Errorf("brak przypisanego scrapera dla competition związanej z team ID=%d", teamID)
+	// Pobierz nazwę scrapera z Variable
+	scraperName, err := s.getScraperNameFromVariable(competition.Variable)
+	if err != nil {
+		return nil, fmt.Errorf("brak przypisanego scrapera dla competition związanej z team ID=%d: %w", teamID, err)
 	}
 	
 	log.Printf("ScraperService: Pobieranie zawodników dla team '%s' używając scrapera '%s'",
-		team.Name, *competition.ScraperGroup)
+		team.Name, scraperName)
 	
 	// Pobierz grupę scraperów
-	group, err := s.registry.GetGroup(*competition.ScraperGroup)
+	group, err := s.registry.GetGroup(scraperName)
 	if err != nil {
 		return nil, fmt.Errorf("błąd pobierania scrapera: %w", err)
 	}
@@ -132,16 +152,17 @@ func (s *ScraperService) ScrapeGamesForStage(stageID uint, externalCompetitionID
 	
 	competition := stage.Competition
 	
-	// Sprawdź czy competition ma przypisany scraper
-	if competition.ScraperGroup == nil || *competition.ScraperGroup == "" {
-		return nil, fmt.Errorf("brak przypisanego scrapera dla stage ID=%d", stageID)
+	// Pobierz nazwę scrapera z Variable
+	scraperName, err := s.getScraperNameFromVariable(competition.Variable)
+	if err != nil {
+		return nil, fmt.Errorf("brak przypisanego scrapera dla stage ID=%d: %w", stageID, err)
 	}
 	
 	log.Printf("ScraperService: Pobieranie meczów dla stage '%s' używając scrapera '%s'",
-		stage.Name, *competition.ScraperGroup)
+		stage.Name, scraperName)
 	
 	// Pobierz grupę scraperów
-	group, err := s.registry.GetGroup(*competition.ScraperGroup)
+	group, err := s.registry.GetGroup(scraperName)
 	if err != nil {
 		return nil, fmt.Errorf("błąd pobierania scrapera: %w", err)
 	}

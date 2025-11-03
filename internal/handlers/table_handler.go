@@ -21,10 +21,8 @@ func NewTableHandler(tableService *services.TableService) *TableHandler {
 }
 
 // CalculateTableForGroup - endpoint do obliczania tabeli dla grupy
-// POST /api/tables/group/:id/calculate
-// lub GET /api/tables/group?group_id=1
+// GET /api/tables/group?group_id=1
 func (h *TableHandler) CalculateTableForGroup(w http.ResponseWriter, r *http.Request) {
-	// Pobierz group_id z query
 	groupIDStr := r.URL.Query().Get("group_id")
 	if groupIDStr == "" {
 		http.Error(w, "Brak group_id", http.StatusBadRequest)
@@ -137,7 +135,7 @@ func (h *TableHandler) GetAvailableAlgorithms(w http.ResponseWriter, r *http.Req
 }
 
 // GetCompetitionAlgorithmInfo - endpoint zwracający info o algorytmie dla competition
-// GET /api/tables/competition/:id/algorithm
+// GET /api/tables/competition/algorithm?competition_id=1
 func (h *TableHandler) GetCompetitionAlgorithmInfo(w http.ResponseWriter, r *http.Request) {
 	competitionIDStr := r.URL.Query().Get("competition_id")
 	if competitionIDStr == "" {
@@ -151,14 +149,11 @@ func (h *TableHandler) GetCompetitionAlgorithmInfo(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// TODO: Pobierz competition z bazy i zwróć info o algorytmie
-	_ = competitionID
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":               "success",
-		"competition_id":       competitionID,
-		"table_order_algorithm": "standard", // TODO: Pobierz z bazy
+		"status":         "success",
+		"competition_id": competitionID,
+		"message":        "Informacje o algorytmie są przechowywane w polu Variable",
 	})
 }
 

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"recorder-server/internal/database"
 	"recorder-server/internal/models"
 	"recorder-server/internal/services"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 // ScraperHandler - handler dla operacji scrapowania
 type ScraperHandler struct {
 	scraperService *services.ScraperService
+	dbManager      *database.Manager
 }
 
 // NewScraperHandler - tworzy nowy handler scraperów
@@ -142,10 +144,8 @@ func (h *ScraperHandler) GetAvailableScrapers(w http.ResponseWriter, r *http.Req
 }
 
 // GetCompetitionScraperInfo - endpoint zwracający info o scraperze dla competition
-// GET /api/scrape/competition/:id/info
+// GET /api/scrape/competition/info?competition_id=1
 func (h *ScraperHandler) GetCompetitionScraperInfo(w http.ResponseWriter, r *http.Request) {
-	// TODO: Pobierz ID z URL (używając gorilla/mux lub innego routera)
-	// Dla przykładu zakładam że jest w query parametrze
 	competitionIDStr := r.URL.Query().Get("competition_id")
 	if competitionIDStr == "" {
 		http.Error(w, "Brak competition_id", http.StatusBadRequest)
@@ -158,14 +158,10 @@ func (h *ScraperHandler) GetCompetitionScraperInfo(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// TODO: Pobierz competition z bazy i zwróć info o scraperze
-	_ = competitionID
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":        "success",
+		"status":         "success",
 		"competition_id": competitionID,
-		"scraper_group": "example_scraper", // TODO: Pobierz z bazy
-		"available":     true,
+		"message":        "Informacje o scraperze są przechowywane w polu Variable",
 	})
 }

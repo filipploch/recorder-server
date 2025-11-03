@@ -7,7 +7,6 @@ import (
 	"recorder-server/config"
 	"recorder-server/internal/database"
 	"recorder-server/internal/models"
-	"strings"
 )
 
 // SetupHandler - handler dla procesu setup
@@ -22,9 +21,8 @@ func NewSetupHandler(dbManager *database.Manager) *SetupHandler {
 	}
 }
 
-// ShowSetupPage - wy?wietla stron? setup
+// ShowSetupPage - wyświetla stronę setup
 func (h *SetupHandler) ShowSetupPage(w http.ResponseWriter, r *http.Request) {
-	// TODO: Renderuj formularz setup
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	html := `
 	<!DOCTYPE html>
@@ -40,119 +38,27 @@ func (h *SetupHandler) ShowSetupPage(w http.ResponseWriter, r *http.Request) {
 		</style>
 	</head>
 	<body>
-		<h1>?? Recorder Server - Konfiguracja</h1>
+		<h1>📊 Recorder Server - Konfiguracja</h1>
 		<p>Witaj! To pierwsze uruchomienie aplikacji.</p>
-		<p>Aby rozpocz??, musisz utworzy? preset rozgrywek, a nast?pnie utworzy? rozgrywki.</p>
+		<p>Aby rozpocząć, musisz utworzyć rozgrywki z dostępnego presetu.</p>
 		
-		<h2>Krok 1: Utw車rz preset</h2>
-		<a href="/setup/create-preset" class="btn">Utw車rz nowy preset</a>
-		
-		<h2>Krok 2: Utw車rz rozgrywki</h2>
-		<a href="/setup/create-competition" class="btn">Utw車rz rozgrywki z presetu</a>
+		<h2>Utwórz rozgrywki</h2>
+		<a href="/setup/create-competition" class="btn">Utwórz rozgrywki z presetu</a>
 	</body>
 	</html>
 	`
 	w.Write([]byte(html))
 }
 
-// ShowCreatePresetPage - wy?wietla formularz tworzenia presetu
-func (h *SetupHandler) ShowCreatePresetPage(w http.ResponseWriter, r *http.Request) {
-	// TODO: Renderuj formularz tworzenia presetu
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	html := `
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<title>Tworzenie presetu</title>
-	</head>
-	<body>
-		<h1>Tworzenie presetu rozgrywek</h1>
-		<form method="POST" action="/setup/create-preset">
-			<label>ID presetu: <input type="text" name="id" required></label><br>
-			<label>Nazwa: <input type="text" name="name" required></label><br>
-			<label>Typ: 
-				<select name="competition_type">
-					<option value="league">Liga</option>
-					<option value="cup">Puchar</option>
-					<option value="tournament">Turniej</option>
-				</select>
-			</label><br>
-			<label>Sport: <input type="text" name="sport" value="futsal"></label><br>
-			<button type="submit">Utw車rz preset</button>
-		</form>
-	</body>
-	</html>
-	`
-	w.Write([]byte(html))
-}
-
-// CreatePreset - tworzy nowy preset
-func (h *SetupHandler) CreatePreset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Metoda niedozwolona", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Wczytaj dane z formularza lub JSON
-	var preset config.CompetitionPreset
-	
-	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-		if err := json.NewDecoder(r.Body).Decode(&preset); err != nil {
-			http.Error(w, "B??d dekodowania JSON", http.StatusBadRequest)
-			return
-		}
-	} else {
-		// Formularz HTML
-		r.ParseForm()
-		preset = config.CompetitionPreset{
-			ID:              r.FormValue("id"),
-			Name:            r.FormValue("name"),
-			CompetitionType: r.FormValue("competition_type"),
-			Sport:           r.FormValue("sport"),
-		}
-	}
-
-	// Wczytaj istniej?ce presety
-	presetsConfig, err := config.LoadPresetsConfig()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("B??d wczytywania preset車w: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// Sprawd? czy preset o tym ID ju? istnieje
-	if presetsConfig.GetPresetByID(preset.ID) != nil {
-		http.Error(w, "Preset o tym ID ju? istnieje", http.StatusConflict)
-		return
-	}
-
-	// Dodaj preset
-	presetsConfig.AddPreset(preset)
-
-	// Zapisz
-	if err := config.SavePresetsConfig(presetsConfig); err != nil {
-		http.Error(w, fmt.Sprintf("B??d zapisywania preset車w: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	// Odpowied?
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Preset utworzony pomy?lnie",
-		"preset":  preset,
-	})
-}
-
-// ShowCreateCompetitionPage - wy?wietla formularz tworzenia rozgrywek
+// ShowCreateCompetitionPage - wyświetla formularz tworzenia rozgrywek
 func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.Request) {
 	// Wczytaj presety
 	presetsConfig, err := config.LoadPresetsConfig()
 	if err != nil || len(presetsConfig.Presets) == 0 {
-		w.Write([]byte("<h1>Brak preset車w</h1><p>Najpierw utw車rz preset.</p>"))
+		w.Write([]byte("<h1>Brak presetów</h1><p>Brak dostępnych presetów w pliku presets.json.</p>"))
 		return
 	}
 
-	// TODO: Renderuj formularz z list? preset車w
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	html := `
 	<!DOCTYPE html>
@@ -177,7 +83,7 @@ func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.
 			<label>ID rozgrywek: <input type="text" name="id" required></label><br>
 			<label>Nazwa: <input type="text" name="name" required></label><br>
 			<label>Sezon: <input type="text" name="season" value="2024/2025"></label><br>
-			<button type="submit">Utw車rz rozgrywki</button>
+			<button type="submit">Utwórz rozgrywki</button>
 		</form>
 	</body>
 	</html>
@@ -201,7 +107,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	// Wczytaj preset
 	presetsConfig, err := config.LoadPresetsConfig()
 	if err != nil {
-		http.Error(w, "B??d wczytywania preset車w", http.StatusInternalServerError)
+		http.Error(w, "Błąd wczytywania presetów", http.StatusInternalServerError)
 		return
 	}
 
@@ -214,48 +120,48 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	// Nazwa pliku bazy danych
 	dbFileName := competitionID + ".db"
 
-	// Utw車rz baz? danych
+	// Utwórz bazę danych
 	if err := h.dbManager.CreateDatabase(competitionID); err != nil {
-		http.Error(w, fmt.Sprintf("B??d tworzenia bazy: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Błąd tworzenia bazy: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Prze??cz na now? baz?
+	// Przełącz na nową bazę
 	if err := h.dbManager.SwitchDatabase(competitionID); err != nil {
-		http.Error(w, fmt.Sprintf("B??d prze??czania bazy: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Błąd przełączania bazy: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Wykonaj migracj?
+	// Wykonaj migrację
 	if err := h.dbManager.AutoMigrate(models.GetAllModels()...); err != nil {
-		http.Error(w, fmt.Sprintf("B??d migracji: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Błąd migracji: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// ZMIANA: Zapisz preset w polu Variable zamiast Data
+	// Zapisz preset w polu Variable
 	db := h.dbManager.GetDB()
 	presetJSON, _ := json.Marshal(preset)
 	competition := models.Competition{
 		Name:     competitionName,
 		Season:   season,
-		Variable: string(presetJSON), // Preset zapisany w polu Variable
+		Variable: string(presetJSON),
 	}
 	if err := db.Create(&competition).Error; err != nil {
-		http.Error(w, fmt.Sprintf("B??d zapisywania rozgrywek: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Błąd zapisywania rozgrywek: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Utw車rz pusty rekord ActiveSession (singleton)
+	// Utwórz pusty rekord ActiveSession (singleton)
 	activeSession := models.ActiveSession{
 		GameID:     nil,
 		GamePartID: nil,
 	}
 	db.Create(&activeSession)
 
-	// Utw車rz/zaktualizuj database_config.json
+	// Utwórz/zaktualizuj database_config.json
 	dbConfig, err := config.LoadDatabaseConfig()
 	if err != nil {
-		// Utw車rz now? konfiguracj?
+		// Utwórz nową konfigurację
 		dbConfig = &config.DatabaseConfig{
 			CurrentDatabase: competitionID,
 			DatabasesPath:   "./databases",
@@ -274,18 +180,18 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	}
 	dbConfig.AddCompetition(compRef)
 	
-	// Ustaw jako aktualn?
+	// Ustaw jako aktualną
 	if !dbConfig.SetCurrentCompetition(competitionID) {
-		http.Error(w, "B??d ustawiania aktualnej bazy danych", http.StatusInternalServerError)
+		http.Error(w, "Błąd ustawiania aktualnej bazy danych", http.StatusInternalServerError)
 		return
 	}
 
-	// Zapisz konfiguracj?
+	// Zapisz konfigurację
 	if err := config.SaveDatabaseConfig(dbConfig); err != nil {
-		http.Error(w, fmt.Sprintf("B??d zapisywania konfiguracji: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Błąd zapisywania konfiguracji: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Przekieruj na stron? g?車wn?
+	// Przekieruj na stronę główną
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

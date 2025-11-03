@@ -130,17 +130,11 @@ type Field struct {
 }
 
 // Competition - rozgrywki (liga, puchar, mistrzostwa)
-// ZMIANY:
-// - Pole Data przemianowane na Variable - przechowuje zmienne konfiguracyjne rozgrywek w formacie JSON
-// - Dodano pole GameLogic (*string, nullable) - definiuje logikę gry dla rozgrywek
 type Competition struct {
-	ID                  uint    `gorm:"primaryKey" json:"id"`
-	Name                string  `gorm:"not null" json:"name"`
-	Season              string  `json:"season"` // np. "2024/2025"
-	Variable            string  `gorm:"type:text" json:"variable"` // JSON ze zmiennymi konfiguracyjnymi rozgrywek (preset, parametry, etc.)
-	GameLogic           *string `json:"game_logic"` // NOWE POLE - logika gry (nullable)
-	ScraperGroup        *string `json:"scraper_group"`
-	TableOrderAlgorithm *string `json:"table_order_algorithm"`
+	ID       uint   `gorm:"primaryKey" json:"id"`
+	Name     string `gorm:"not null" json:"name"`
+	Season   string `json:"season"` // np. "2024/2025"
+	Variable string `gorm:"type:text" json:"variable"` // JSON ze zmiennymi konfiguracyjnymi rozgrywek
 	
 	// Relacje
 	Stages []Stage `gorm:"foreignKey:CompetitionID" json:"stages,omitempty"`

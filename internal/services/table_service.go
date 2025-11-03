@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"recorder-server/internal/database"
@@ -22,6 +23,21 @@ func NewTableService(dbManager *database.Manager) *TableService {
 	}
 }
 
+// getAlgorithmNameFromVariable - pobiera nazwę algorytmu z pola Variable
+func (s *TableService) getAlgorithmNameFromVariable(variable string) (string, error) {
+	var variableData map[string]interface{}
+	if err := json.Unmarshal([]byte(variable), &variableData); err != nil {
+		return "", fmt.Errorf("błąd parsowania Variable: %w", err)
+	}
+	
+	// Sprawdź czy istnieje pole table_order_algorithm
+	if algorithm, ok := variableData["table_order_algorithm"].(string); ok && algorithm != "" {
+		return algorithm, nil
+	}
+	
+	return "", fmt.Errorf("brak informacji o algorytmie sortowania w Variable")
+}
+
 // CalculateTableForGroup - oblicza tabelę dla danej grupy
 func (s *TableService) CalculateTableForGroup(groupID uint) (*tables.Table, error) {
 	db := s.dbManager.GetDB()
@@ -34,16 +50,17 @@ func (s *TableService) CalculateTableForGroup(groupID uint) (*tables.Table, erro
 	
 	competition := group.Stage.Competition
 	
-	// Sprawdź czy competition ma przypisany algorytm
-	if competition.TableOrderAlgorithm == nil || *competition.TableOrderAlgorithm == "" {
-		return nil, fmt.Errorf("brak przypisanego algorytmu sortowania dla group ID=%d", groupID)
+	// Pobierz nazwę algorytmu z Variable
+	algorithmName, err := s.getAlgorithmNameFromVariable(competition.Variable)
+	if err != nil {
+		return nil, fmt.Errorf("brak przypisanego algorytmu sortowania dla group ID=%d: %w", groupID, err)
 	}
 	
 	log.Printf("TableService: Obliczanie tabeli dla grupy '%s' używając algorytmu '%s'",
-		group.Name, *competition.TableOrderAlgorithm)
+		group.Name, algorithmName)
 	
 	// Pobierz algorytm z registry
-	algorithm, err := s.registry.GetAlgorithm(*competition.TableOrderAlgorithm)
+	algorithm, err := s.registry.GetAlgorithm(algorithmName)
 	if err != nil {
 		return nil, fmt.Errorf("błąd pobierania algorytmu: %w", err)
 	}
@@ -147,13 +164,14 @@ func (s *TableService) CompareTeamsInGroup(groupID uint, team1ID, team2ID uint) 
 	
 	competition := group.Stage.Competition
 	
-	// Sprawdź algorytm
-	if competition.TableOrderAlgorithm == nil || *competition.TableOrderAlgorithm == "" {
-		return 0, fmt.Errorf("brak przypisanego algorytmu")
+	// Pobierz nazwę algorytmu z Variable
+	algorithmName, err := s.getAlgorithmNameFromVariable(competition.Variable)
+	if err != nil {
+		return 0, fmt.Errorf("brak przypisanego algorytmu: %w", err)
 	}
 	
 	// Pobierz algorytm
-	algorithm, err := s.registry.GetAlgorithm(*competition.TableOrderAlgorithm)
+	algorithm, err := s.registry.GetAlgorithm(algorithmName)
 	if err != nil {
 		return 0, err
 	}

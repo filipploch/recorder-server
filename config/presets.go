@@ -32,8 +32,6 @@ type CompetitionPreset struct {
 }
 
 // GamePartPreset - szablon części meczu
-// ZMIANY:
-// - Dodano pole IsAddedTimeAllowed (bool)
 type GamePartPreset struct {
 	Name               string `json:"name"`                 // Nazwa części
 	Length             *int   `json:"length"`               // nullable - długość w sekundach
@@ -106,31 +104,4 @@ func (c *PresetsConfig) GetPresetByID(presetID string) *CompetitionPreset {
 		}
 	}
 	return nil
-}
-
-// AddPreset - dodaje nowy preset
-func (c *PresetsConfig) AddPreset(preset CompetitionPreset) {
-	c.Presets = append(c.Presets, preset)
-}
-
-// UpdatePreset - aktualizuje istniejący preset
-func (c *PresetsConfig) UpdatePreset(preset CompetitionPreset) bool {
-	for i := range c.Presets {
-		if c.Presets[i].ID == preset.ID {
-			c.Presets[i] = preset
-			return true
-		}
-	}
-	return false
-}
-
-// DeletePreset - usuwa preset
-func (c *PresetsConfig) DeletePreset(presetID string) bool {
-	for i := range c.Presets {
-		if c.Presets[i].ID == presetID {
-			c.Presets = append(c.Presets[:i], c.Presets[i+1:]...)
-			return true
-		}
-	}
-	return false
 }
