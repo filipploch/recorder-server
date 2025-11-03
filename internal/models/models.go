@@ -50,6 +50,7 @@ type Player struct {
 	PlayerRoleID uint    `json:"player_role_id"`
 	TeamID       uint    `json:"team_id"`
 	IsCaptain    bool    `gorm:"default:false" json:"is_captain"`
+	IsYoung      bool    `gorm:"default:false" json:"is_young"`
 	
 	// Relacje
 	PlayerRole PlayerRole `gorm:"foreignKey:PlayerRoleID" json:"player_role,omitempty"`
@@ -204,12 +205,13 @@ type GroupTeam struct {
 // - GroupID nie jest już nullable - każdy mecz musi należeć do grupy
 // - Zespoły biorące udział w meczu są określane przez tabelę GameTeam (nie bezpośrednio w Game)
 type Game struct {
-	ID        uint    `gorm:"primaryKey" json:"id"`
-	ForeignID *string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
-	GroupID   uint    `json:"group_id"` // grupa do której należy mecz (wymagane)
-	FieldID   uint    `json:"field_id"`
-	DateTime  string  `json:"date_time"` // Format: "2025-10-17_20:45"
-	Round     int     `gorm:"default:1" json:"round"` // Runda/kolejka
+	ID        	uint    `gorm:"primaryKey" json:"id"`
+	ForeignID 	*string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
+	GroupID   	uint    `json:"group_id"` // grupa do której należy mecz (wymagane)
+	FieldID   	uint    `json:"field_id"`
+	DateTime  	string  `json:"date_time"` // Format: "2025-10-17_20:45"
+	Round     	int     `gorm:"default:1" json:"round"` // Runda/kolejka
+	IsFinished	*bool	`json:"is_finished"` 
 	
 	// Relacje
 	Group     Group      `gorm:"foreignKey:GroupID" json:"group,omitempty"`
