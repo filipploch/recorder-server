@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"encoding/json"
@@ -73,19 +73,24 @@ func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.
 			h1 { color: #333; }
 			form { background: #f5f5f5; padding: 20px; border-radius: 8px; }
 			label { display: block; margin: 15px 0 5px; font-weight: bold; }
-			input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+			input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 			button { padding: 12px 24px; margin: 20px 0; background: #667eea; color: white; 
 			         border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
 			button:hover { background: #5568d3; }
 			.help { color: #666; font-size: 14px; margin-top: 5px; }
+			.section { margin: 25px 0; padding: 15px; background: white; border-radius: 6px; }
+			.section-title { font-size: 18px; color: #667eea; margin-bottom: 10px; }
 		</style>
 	</head>
 	<body>
 		<h1>Tworzenie rozgrywek</h1>
 		<form method="POST" action="/setup/create-competition">
-			<label>Wybierz preset:
-				<select name="preset_name" required>
-					<option value="">-- Wybierz preset --</option>
+			<div class="section">
+				<div class="section-title">📋 Podstawowe informacje</div>
+				
+				<label>Wybierz preset:
+					<select name="preset_name" required>
+						<option value="">-- Wybierz preset --</option>
 	`
 	
 	for _, preset := range presetsConfig.Presets.Competitions {
@@ -94,30 +99,40 @@ func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.
 	}
 	
 	html += `
-				</select>
-			</label>
-			<p class="help">Preset definiuje reguły i strukturę rozgrywek (liga, puchar, itd.)</p>
+					</select>
+				</label>
+				<p class="help">Preset definiuje reguły i strukturę rozgrywek (liga, puchar, itd.)</p>
 
-			<label>ID rozgrywek:
-				<input type="text" name="id" required pattern="[a-zA-Z0-9_-]+" 
-				       placeholder="np. nalf_liga_2024_2025">
-			</label>
-			<p class="help">Unikalny identyfikator (litery, cyfry, myślniki i podkreślenia)</p>
+				<label>ID rozgrywek:
+					<input type="text" name="id" required pattern="[a-zA-Z0-9_-]+" 
+					       placeholder="np. nalf_liga_2024_2025">
+				</label>
+				<p class="help">Unikalny identyfikator (litery, cyfry, myślniki i podkreślenia)</p>
 
-			<label>Nazwa rozgrywek:
-				<input type="text" name="name" required placeholder="np. NALF Liga Sezon 2024/2025">
-			</label>
-			<p class="help">Pełna nazwa rozgrywek widoczna w aplikacji</p>
+				<label>Nazwa rozgrywek:
+					<input type="text" name="name" required placeholder="np. NALF Liga Sezon 2024/2025">
+				</label>
+				<p class="help">Pełna nazwa rozgrywek widoczna w aplikacji</p>
 
-			<label>Sezon:
-				<input type="text" name="season" value="2024/2025" required>
-			</label>
-			<p class="help">Sezon rozgrywek (np. 2024/2025)</p>
+				<label>Sezon:
+					<input type="text" name="season" value="2024/2025" required>
+				</label>
+				<p class="help">Sezon rozgrywek (np. 2024/2025)</p>
+			</div>
 
-			<label>URL do scrapowania meczów (opcjonalne):
-				<input type="url" name="games_url" placeholder="https://example.com/games">
-			</label>
-			<p class="help">Adres URL skąd pobierane będą informacje o meczach (jeśli dotyczy)</p>
+			<div class="section">
+				<div class="section-title">🌐 Scrapowanie danych (opcjonalne)</div>
+				
+				<label>URL do scrapowania drużyn:
+					<input type="url" name="teams_url" placeholder="https://example.com/teams">
+				</label>
+				<p class="help">Adres URL skąd pobierane będą informacje o drużynach</p>
+
+				<label>URL do scrapowania meczów:
+					<input type="url" name="games_url" placeholder="https://example.com/games">
+				</label>
+				<p class="help">Adres URL skąd pobierane będą informacje o meczach</p>
+			</div>
 
 			<button type="submit">Utwórz rozgrywki</button>
 		</form>
@@ -139,6 +154,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	competitionID := r.FormValue("id")
 	competitionName := r.FormValue("name")
 	season := r.FormValue("season")
+	teamsURL := r.FormValue("teams_url")
 	gamesURL := r.FormValue("games_url")
 
 	// Wczytaj presety
@@ -158,6 +174,13 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	competitionPath := filepath.Join("./competitions", competitionID)
 	if err := os.MkdirAll(competitionPath, 0755); err != nil {
 		http.Error(w, fmt.Sprintf("Błąd tworzenia katalogu: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Utwórz katalog tmp dla tymczasowych danych
+	tmpPath := filepath.Join(competitionPath, "tmp")
+	if err := os.MkdirAll(tmpPath, 0755); err != nil {
+		http.Error(w, fmt.Sprintf("Błąd tworzenia katalogu tmp: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -249,12 +272,19 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 
 	// === PRZYGOTUJ VARIABLE ===
 	
-	// Dodaj games_url do variable jeśli podano
-	if gamesURL != "" {
+	// Dodaj teams_url i games_url do variable jeśli podano
+	if teamsURL != "" || gamesURL != "" {
 		if scraperData, ok := preset.Variable["scraper"].(map[string]interface{}); ok {
-			scraperData["games_url"] = gamesURL
+			if teamsURL != "" {
+				scraperData["teams_url"] = teamsURL
+			}
+			if gamesURL != "" {
+				scraperData["games_url"] = gamesURL
+			}
 		} else {
+			// Utwórz nowy obiekt scraper jeśli nie istnieje
 			preset.Variable["scraper"] = map[string]interface{}{
+				"teams_url": teamsURL,
 				"games_url": gamesURL,
 			}
 		}
