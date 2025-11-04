@@ -1,3 +1,6 @@
 /competitions
 database_config.json
 presets.json
+
+# Ignoruj pliki tymczasowe w każdym katalogu tmp
+**/tmp/

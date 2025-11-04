@@ -11,8 +11,8 @@ type Team struct {
 	Link      string `json:"link"`
 	ForeignID *string `json:"foreign_id"` // nullable
 	Name      string `gorm:"not null" json:"name"`
-	ShortName string `gorm:"size:3;not null;unique" json:"short_name"`
-	Name16    string `gorm:"size:16;not null;unique" json:"name_16"`
+	ShortName string `gorm:"size:3;not null;unique" json:"short_name"` // NOT NULL + UNIQUE
+	Name16    string `gorm:"size:16;not null;unique" json:"name_16"`   // NOT NULL + UNIQUE
 	Logo      string `json:"logo"`
 	
 	// Relacje

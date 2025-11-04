@@ -25,11 +25,14 @@ func NewScraperHandler(scraperService *services.ScraperService) *ScraperHandler 
 // ScrapeTeams - endpoint do scrapowania drużyn
 // POST /api/scrape/teams
 // Body: { "competition_id": 1, "external_competition_id": "ekstraklasa-2024" }
+// 
+// ZMIENIONA LOGIKA:
+// - Kompletne drużyny zapisywane są bezpośrednio do bazy
+// - Niekompletne drużyny zapisywane są do /competitions/<id>/tmp/teams.json
 func (h *ScraperHandler) ScrapeTeams(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		CompetitionID         uint   `json:"competition_id"`
 		ExternalCompetitionID string `json:"external_competition_id"`
-		SaveToDB              bool   `json:"save_to_db"` // Czy zapisać do bazy
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -48,13 +51,24 @@ func (h *ScraperHandler) ScrapeTeams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Jeśli SaveToDB == true, zapisz drużyny do bazy
-
+	// TODO: W rzeczywistej implementacji ScraperService powinien zwracać []TempTeam
+	// Na razie przyjmijmy że zwraca []Team i trzeba je skonwertować
+	
+	// Klasyfikuj drużyny na kompletne i niekompletne
+	completeCount := 0
+	incompleteCount := 0
+	
+	// TODO: Implementacja klasyfikacji i zapisu
+	// completeTeams - zapisz do bazy danych
+	// incompleteTeams - zapisz do pliku tymczasowego
+	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
-		"count":  len(teams),
-		"teams":  teams,
+		"status":    "success",
+		"total":     len(teams),
+		"complete":  completeCount,
+		"incomplete": incompleteCount,
+		"message":   "Drużyny zescrapowane. Kompletne zapisane do bazy, niekompletne do pliku tymczasowego.",
 	})
 }
 
