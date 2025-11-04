@@ -49,9 +49,9 @@ func (m *Manager) Initialize() error {
 	}
 	m.dbConfig = dbConfig
 
-	// Utwórz katalog na bazy danych jeśli nie istnieje
+	// Utwórz katalog competitions jeśli nie istnieje
 	if err := os.MkdirAll(m.dbConfig.DatabasesPath, 0755); err != nil {
-		return fmt.Errorf("błąd tworzenia katalogu baz danych: %w", err)
+		return fmt.Errorf("błąd tworzenia katalogu competitions: %w", err)
 	}
 
 	// Połącz z aktualną bazą
@@ -73,14 +73,14 @@ func (m *Manager) connectToDatabase(dbName string) error {
 		return nil
 	}
 
-	// Określ ścieżkę do katalogu baz danych
-	dbPath := "./databases" // Domyślna ścieżka
+	// Określ ścieżkę do katalogu competitions
+	dbPath := "./competitions" // Domyślna ścieżka
 	if m.dbConfig != nil && m.dbConfig.DatabasesPath != "" {
 		dbPath = m.dbConfig.DatabasesPath
 	}
 
-	// Ścieżka do pliku bazy
-	fullPath := filepath.Join(dbPath, dbName+".db")
+	// Ścieżka do pliku bazy - competitions/competitionID/competitionID.db
+	fullPath := filepath.Join(dbPath, dbName, dbName+".db")
 
 	// Otwórz połączenie z GORM
 	db, err := gorm.Open(sqlite.Open(fullPath), &gorm.Config{
@@ -162,19 +162,20 @@ func (m *Manager) CreateDatabase(dbName string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Określ ścieżkę do katalogu baz danych
-	dbPath := "./databases" // Domyślna ścieżka
+	// Określ ścieżkę do katalogu competitions
+	dbPath := "./competitions" // Domyślna ścieżka
 	if m.dbConfig != nil && m.dbConfig.DatabasesPath != "" {
 		dbPath = m.dbConfig.DatabasesPath
 	}
 	
-	// Utwórz katalog jeśli nie istnieje
-	if err := os.MkdirAll(dbPath, 0755); err != nil {
-		return fmt.Errorf("błąd tworzenia katalogu baz danych: %w", err)
+	// Utwórz katalog dla rozgrywek: competitions/competitionID/
+	competitionDir := filepath.Join(dbPath, dbName)
+	if err := os.MkdirAll(competitionDir, 0755); err != nil {
+		return fmt.Errorf("błąd tworzenia katalogu rozgrywek: %w", err)
 	}
 
 	// Pełna ścieżka do pliku bazy
-	fullPath := filepath.Join(dbPath, dbName+".db")
+	fullPath := filepath.Join(competitionDir, dbName+".db")
 	
 	// Sprawdź czy baza już istnieje
 	if _, err := os.Stat(fullPath); err == nil {
@@ -192,7 +193,7 @@ func (m *Manager) CreateDatabase(dbName string) error {
 	// Zapisz w cache
 	m.databases[dbName] = db
 
-	log.Printf("Database: Utworzono nową bazę: %s", dbName)
+	log.Printf("Database: Utworzono nową bazę: %s w %s", dbName, competitionDir)
 	return nil
 }
 
@@ -215,10 +216,10 @@ func (m *Manager) DeleteDatabase(dbName string) error {
 		delete(m.databases, dbName)
 	}
 
-	// Usuń plik
-	dbPath := filepath.Join(m.dbConfig.DatabasesPath, dbName+".db")
-	if err := os.Remove(dbPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("błąd usuwania pliku bazy: %w", err)
+	// Usuń cały katalog rozgrywek
+	competitionDir := filepath.Join(m.dbConfig.DatabasesPath, dbName)
+	if err := os.RemoveAll(competitionDir); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("błąd usuwania katalogu rozgrywek: %w", err)
 	}
 
 	// Usuń z konfiguracji

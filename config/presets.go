@@ -9,42 +9,65 @@ import (
 
 // PresetsConfig - konfiguracja presetów rozgrywek
 type PresetsConfig struct {
-	Presets []CompetitionPreset `json:"presets"`
+	Presets PresetsData `json:"presets"`
 }
 
-// CompetitionPreset - szablon/preset rozgrywek
-type CompetitionPreset struct {
-	ID                string            `json:"id"`                  // Unikalny ID presetu
-	Name              string            `json:"name"`                // Nazwa presetu
-	CompetitionType   string            `json:"competition_type"`    // "league", "cup", "tournament"
-	Sport             string            `json:"sport"`               // "futsal", "basketball", etc.
-	TeamsCount        *int              `json:"teams_count"`         // nullable - ilość drużyn
-	IsTwoLeg          bool              `json:"is_two_leg"`          // Czy dwumecze
-	MatchesPerPairing int               `json:"matches_per_pairing"` // Ile meczy każda para drużyn
-	ValueTypes        []string          `json:"value_types"`         // Lista typów wartości (goals, fouls)
-	GameParts         []GamePartPreset  `json:"game_parts"`          // Części meczu
-	PlayerRoles       []string          `json:"player_roles"`        // Role zawodników
-	CoachRoles        []string          `json:"coach_roles"`         // Role trenerów
-	RefereeRoles      []string          `json:"referee_roles"`       // Role sędziów
-	TVStaffRoles      []string          `json:"tv_staff_roles"`      // Role ekipy TV
-	KitTypes          []string          `json:"kit_types"`           // Typy strojów
-	EventTypes        []EventTypePreset `json:"event_types"`         // Typy wydarzeń
+// PresetsData - struktura głównych danych presetów
+type PresetsData struct {
+	Competitions []CompetitionPresetFull `json:"competitions"`
+	Common       CommonData              `json:"common"`
 }
 
-// GamePartPreset - szablon części meczu
-type GamePartPreset struct {
-	Name               string `json:"name"`                 // Nazwa części
-	Length             *int   `json:"length"`               // nullable - długość w sekundach
-	TimeGroup          *int   `json:"time_group"`           // nullable - grupa sumowania czasu
-	IsAddedTimeAllowed bool   `json:"is_added_time_allowed"` // czy dozwolony czas dodatkowy
+// CompetitionPresetFull - pełny preset rozgrywek
+type CompetitionPresetFull struct {
+	Name     string                 `json:"name"`
+	Constant ConstantData           `json:"constant"`
+	Variable map[string]interface{} `json:"variable"`
 }
 
-// EventTypePreset - szablon typu wydarzenia
-type EventTypePreset struct {
-	Name         string `json:"name"`
-	ShortName    string `json:"short_name"`
-	Icon         string `json:"icon"`
-	IsInProtocol bool   `json:"is_in_protocol"`
+// ConstantData - dane stałe dla rozgrywek
+type ConstantData struct {
+	ValueTypes     []ValueTypeData     `json:"value_types"`
+	PlayerRoles    []RoleData          `json:"player_roles"`
+	GamePartValues []GamePartValueData `json:"game_part_values"`
+}
+
+// CommonData - dane wspólne dla wszystkich rozgrywek
+type CommonData struct {
+	TVStaffRoles []RoleData   `json:"tv_staff_roles"`
+	Cameras      []CameraData `json:"cameras"`
+	CoachRoles   []RoleData   `json:"coach_roles"`
+	RefereeRoles []RoleData   `json:"referee_roles"`
+}
+
+// ValueTypeData - typ wartości (bramki, faule)
+type ValueTypeData struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+// RoleData - uniwersalna struktura dla ról
+type RoleData struct {
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	ShortName string `json:"short_name,omitempty"`
+	Location  string `json:"location,omitempty"` // dla kamer
+}
+
+// CameraData - dane kamery
+type CameraData struct {
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	Location string `json:"location"`
+}
+
+// GamePartValueData - wartość części meczu
+type GamePartValueData struct {
+	ValueTypeID    uint  `json:"value_type_id"`
+	Value          *int  `json:"value"`           // nullable
+	GameValueGroup *int  `json:"game_value_group"` // nullable
+	MinValue       *int  `json:"min_value"`        // nullable
+	MaxValue       *int  `json:"max_value"`        // nullable
 }
 
 const PresetsConfigFile = "presets.json"
@@ -53,17 +76,7 @@ const PresetsConfigFile = "presets.json"
 func LoadPresetsConfig() (*PresetsConfig, error) {
 	// Sprawdź czy plik istnieje
 	if _, err := os.Stat(PresetsConfigFile); os.IsNotExist(err) {
-		// Utwórz pusty plik z presetami
-		emptyConfig := &PresetsConfig{
-			Presets: []CompetitionPreset{},
-		}
-		
-		if err := SavePresetsConfig(emptyConfig); err != nil {
-			return nil, err
-		}
-		
-		log.Println("Presets: Created empty presets file")
-		return emptyConfig, nil
+		return nil, err
 	}
 
 	// Wczytaj z pliku
@@ -77,31 +90,25 @@ func LoadPresetsConfig() (*PresetsConfig, error) {
 		return nil, err
 	}
 
-	log.Printf("Presets: Loaded %d presets", len(config.Presets))
+	log.Printf("Presets: Loaded %d competition presets", len(config.Presets.Competitions))
 	return &config, nil
 }
 
-// SavePresetsConfig - zapisuje konfigurację presetów do pliku
-func SavePresetsConfig(config *PresetsConfig) error {
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	if err := ioutil.WriteFile(PresetsConfigFile, data, 0644); err != nil {
-		return err
-	}
-
-	log.Printf("Presets: Saved %d presets", len(config.Presets))
-	return nil
-}
-
-// GetPresetByID - zwraca preset o podanym ID
-func (c *PresetsConfig) GetPresetByID(presetID string) *CompetitionPreset {
-	for i := range c.Presets {
-		if c.Presets[i].ID == presetID {
-			return &c.Presets[i]
+// GetPresetByName - zwraca preset o podanej nazwie
+func (c *PresetsConfig) GetPresetByName(name string) *CompetitionPresetFull {
+	for i := range c.Presets.Competitions {
+		if c.Presets.Competitions[i].Name == name {
+			return &c.Presets.Competitions[i]
 		}
 	}
 	return nil
+}
+
+// GetPresetNames - zwraca listę nazw presetów
+func (c *PresetsConfig) GetPresetNames() []string {
+	names := make([]string, len(c.Presets.Competitions))
+	for i, preset := range c.Presets.Competitions {
+		names[i] = preset.Name
+	}
+	return names
 }
