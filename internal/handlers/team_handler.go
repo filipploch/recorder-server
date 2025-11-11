@@ -26,19 +26,13 @@ func NewTeamHandler(dbManager *database.Manager) *TeamHandler {
 
 // TeamRequest - struktura żądania dla tworzenia/edycji zespołu
 type TeamRequest struct {
-	Name      string       `json:"name"`
-	ForeignID *string      `json:"foreign_id"`
-	ShortName string       `json:"short_name"`
-	Name16    string       `json:"name_16"`
-	Logo      string       `json:"logo"`
-	Link      *string      `json:"link"`
-	Kits      []KitRequest `json:"kits"` // NOWE - stroje
-}
-
-// KitRequest - struktura żądania dla stroju
-type KitRequest struct {
-	Type   int      `json:"type"`   // 1=home, 2=away, 3=extra
-	Colors []string `json:"colors"` // Kolory w formacie HEX
+	Name      string              `json:"name"`
+	ForeignID *string             `json:"foreign_id"`
+	ShortName string              `json:"short_name"`
+	Name16    string              `json:"name_16"`
+	Logo      string              `json:"logo"`
+	Link      *string             `json:"link"`
+	Kits      map[string][]string `json:"kits"` // Mapa: "1" -> ["#fff"], "2" -> ["#000"], "3" -> ["#66ff73"]
 }
 
 // ValidationError - struktura błędu walidacji
@@ -168,24 +162,28 @@ func (h *TeamHandler) validateTeamRequest(req TeamRequest, isUpdate bool, teamID
 		})
 	}
 
-	// NOWA WALIDACJA - Kits
+	// NOWA WALIDACJA - Kits (jako mapa)
 	if len(req.Kits) != 3 {
 		errors = append(errors, ValidationError{
 			Field:   "kits",
 			Message: "Zespół musi mieć dokładnie 3 komplety strojów",
 		})
 	} else {
-		for i, kit := range req.Kits {
-			// Sprawdź typ (1, 2, 3)
-			if kit.Type < 1 || kit.Type > 3 {
+		// Sprawdź czy są wszystkie typy (1, 2, 3)
+		for kitType := 1; kitType <= 3; kitType++ {
+			kitKey := strconv.Itoa(kitType)
+			colors, exists := req.Kits[kitKey]
+
+			if !exists {
 				errors = append(errors, ValidationError{
 					Field:   "kits",
-					Message: "Nieprawidłowy typ stroju",
+					Message: "Brak kompletu nr " + kitKey,
 				})
+				continue
 			}
 
 			// Sprawdź ilość kolorów (1-5)
-			if len(kit.Colors) < 1 || len(kit.Colors) > 5 {
+			if len(colors) < 1 || len(colors) > 5 {
 				errors = append(errors, ValidationError{
 					Field:   "kits",
 					Message: "Każdy strój musi mieć od 1 do 5 kolorów",
@@ -193,22 +191,11 @@ func (h *TeamHandler) validateTeamRequest(req TeamRequest, isUpdate bool, teamID
 			}
 
 			// Sprawdź format kolorów HEX
-			for _, color := range kit.Colors {
+			for _, color := range colors {
 				if !strings.HasPrefix(color, "#") || len(color) != 7 {
 					errors = append(errors, ValidationError{
 						Field:   "kits",
 						Message: "Nieprawidłowy format koloru (wymagany #RRGGBB)",
-					})
-					break
-				}
-			}
-
-			// Sprawdź unikalność typu
-			for j := i + 1; j < len(req.Kits); j++ {
-				if kit.Type == req.Kits[j].Type {
-					errors = append(errors, ValidationError{
-						Field:   "kits",
-						Message: "Typy strojów muszą być unikalne",
 					})
 					break
 				}
@@ -276,10 +263,10 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 
 	// Jeśli nie podano strojów, ustaw domyślne
 	if len(req.Kits) == 0 {
-		req.Kits = []KitRequest{
-			{Type: 1, Colors: []string{"#ffffff"}},
-			{Type: 2, Colors: []string{"#000000"}},
-			{Type: 3, Colors: []string{"#66ff73"}},
+		req.Kits = map[string][]string{
+			"1": {"#ffffff"},
+			"2": {"#000000"},
+			"3": {"#66ff73"},
 		}
 	}
 
@@ -325,11 +312,19 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Utwórz stroje
-	for _, kitReq := range req.Kits {
+	// Utwórz stroje z mapy
+	for kitType := 1; kitType <= 3; kitType++ {
+		kitKey := strconv.Itoa(kitType)
+		colors, exists := req.Kits[kitKey]
+
+		if !exists {
+			// To nie powinno się zdarzyć po walidacji
+			continue
+		}
+
 		kit := models.Kit{
 			TeamID: team.ID,
-			Type:   kitReq.Type,
+			Type:   kitType,
 		}
 
 		if err := tx.Create(&kit).Error; err != nil {
@@ -343,7 +338,7 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Utwórz kolory stroju
-		for order, color := range kitReq.Colors {
+		for order, color := range colors {
 			kitColor := models.KitColor{
 				KitID:      kit.ID,
 				ColorOrder: order + 1, // 1-based index
@@ -466,18 +461,25 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Aktualizuj każdy strój
-		for _, kitReq := range req.Kits {
+		for kitType := 1; kitType <= 3; kitType++ {
+			kitKey := strconv.Itoa(kitType)
+			colors, exists := req.Kits[kitKey]
+
+			if !exists {
+				continue
+			}
+
 			// Znajdź odpowiedni Kit
 			var kit models.Kit
 			for _, k := range team.Kits {
-				if k.Type == kitReq.Type {
+				if k.Type == kitType {
 					kit = k
 					break
 				}
 			}
 
 			// Dodaj nowe kolory
-			for order, color := range kitReq.Colors {
+			for order, color := range colors {
 				kitColor := models.KitColor{
 					KitID:      kit.ID,
 					ColorOrder: order + 1,

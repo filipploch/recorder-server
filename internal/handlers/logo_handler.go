@@ -3,8 +3,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 )
 
@@ -17,8 +17,8 @@ func NewLogoHandler() *LogoHandler {
 // ListLogos - zwraca listę dostępnych logo
 func (h *LogoHandler) ListLogos(w http.ResponseWriter, r *http.Request) {
 	logosPath := "./web/static/images/logos"
-	
-	files, err := ioutil.ReadDir(logosPath)
+
+	files, err := os.ReadDir(logosPath)
 	if err != nil {
 		http.Error(w, "Błąd odczytu katalogu", http.StatusInternalServerError)
 		return

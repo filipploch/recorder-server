@@ -71,8 +71,21 @@ func (h *TeamImportHandler) UpdateTempTeam(w http.ResponseWriter, r *http.Reques
 	vars := mux.Vars(r)
 	tempID := vars["temp_id"]
 
-	var updated models.TempTeam
-	if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
+	// Użyj struktury pomocniczej do odbierania danych z frontendu
+	var updateData struct {
+		Name      string              `json:"name"`
+		ShortName string              `json:"short_name"`
+		Name16    string              `json:"name_16"`
+		Logo      string              `json:"logo"`
+		Link      string              `json:"link"`
+		ForeignID string              `json:"foreign_id"`
+		Source    string              `json:"source"`
+		ScrapedAt string              `json:"scraped_at"`
+		Notes     string              `json:"notes"`
+		Kits      map[string][]string `json:"kits"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -84,9 +97,47 @@ func (h *TeamImportHandler) UpdateTempTeam(w http.ResponseWriter, r *http.Reques
 
 	competitionID := h.dbManager.GetCurrentDatabaseName()
 
+	// Pobierz istniejącą drużynę
+	existing, err := h.importService.GetTempTeam(competitionID, tempID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "Nie znaleziono drużyny: " + err.Error(),
+		})
+		return
+	}
+
+	// Konwertuj na TempTeam ze wskaźnikami
+	updated := models.TempTeam{
+		TempID:    existing.TempID,
+		Name:      updateData.Name,
+		ShortName: stringToPtr(updateData.ShortName),
+		Name16:    stringToPtr(updateData.Name16),
+		Logo:      stringToPtr(updateData.Logo),
+		Link:      stringToPtr(updateData.Link),
+		ForeignID: stringToPtr(updateData.ForeignID),
+		Source:    existing.Source, // Zachowaj oryginalne źródło
+		ScrapedAt: existing.ScrapedAt,
+		Notes:     updateData.Notes,
+		Kits:      updateData.Kits,
+	}
+
 	// Sprawdź czy drużyna jest kompletna
 	if updated.IsComplete() {
-		// Drużyna kompletna - importuj do bazy
+		// Najpierw zapisz w pliku tymczasowym
+		if err := h.importService.UpdateTempTeam(competitionID, tempID, updated); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "error",
+				"error":  "Błąd zapisu: " + err.Error(),
+			})
+			return
+		}
+
+		// Następnie importuj do bazy
 		team, err := h.importService.ImportTeam(competitionID, tempID)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -192,4 +243,12 @@ func (h *TeamImportHandler) DeleteTempTeam(w http.ResponseWriter, r *http.Reques
 		"status":  "success",
 		"message": "Drużyna usunięta",
 	})
+}
+
+// stringToPtr - helper do konwersji string na *string (nil jeśli pusty)
+func stringToPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

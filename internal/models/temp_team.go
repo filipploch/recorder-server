@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -82,7 +81,7 @@ func (m *TempTeamManager) Save(collection *TempTeamsCollection) error {
 		return fmt.Errorf("błąd serializacji JSON: %w", err)
 	}
 
-	if err := ioutil.WriteFile(m.filePath, data, 0644); err != nil {
+	if err := os.WriteFile(m.filePath, data, 0644); err != nil {
 		return fmt.Errorf("błąd zapisu pliku: %w", err)
 	}
 

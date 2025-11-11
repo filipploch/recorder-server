@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 )
@@ -63,11 +62,11 @@ type CameraData struct {
 
 // GamePartValueData - wartość części meczu
 type GamePartValueData struct {
-	ValueTypeID    uint  `json:"value_type_id"`
-	Value          *int  `json:"value"`           // nullable
-	GameValueGroup *int  `json:"game_value_group"` // nullable
-	MinValue       *int  `json:"min_value"`        // nullable
-	MaxValue       *int  `json:"max_value"`        // nullable
+	ValueTypeID    uint `json:"value_type_id"`
+	Value          *int `json:"value"`            // nullable
+	GameValueGroup *int `json:"game_value_group"` // nullable
+	MinValue       *int `json:"min_value"`        // nullable
+	MaxValue       *int `json:"max_value"`        // nullable
 }
 
 const PresetsConfigFile = "presets.json"
@@ -80,7 +79,7 @@ func LoadPresetsConfig() (*PresetsConfig, error) {
 	}
 
 	// Wczytaj z pliku
-	data, err := ioutil.ReadFile(PresetsConfigFile)
+	data, err := os.ReadFile(PresetsConfigFile)
 	if err != nil {
 		return nil, err
 	}

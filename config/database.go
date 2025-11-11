@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 )
@@ -36,7 +35,7 @@ func LoadDatabaseConfig() (*DatabaseConfig, error) {
 	}
 
 	// Wczytaj z pliku
-	data, err := ioutil.ReadFile(DatabaseConfigFile)
+	data, err := os.ReadFile(DatabaseConfigFile)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +45,7 @@ func LoadDatabaseConfig() (*DatabaseConfig, error) {
 		return nil, err
 	}
 
-	log.Printf("Database: Loaded config (current: %s, competitions: %d)", 
+	log.Printf("Database: Loaded config (current: %s, competitions: %d)",
 		config.CurrentDatabase, len(config.Competitions))
 	return &config, nil
 }
@@ -58,7 +57,7 @@ func SaveDatabaseConfig(config *DatabaseConfig) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(DatabaseConfigFile, data, 0644); err != nil {
+	if err := os.WriteFile(DatabaseConfigFile, data, 0644); err != nil {
 		return err
 	}
 
