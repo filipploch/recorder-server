@@ -146,7 +146,7 @@
             padding: 30px;
             border-radius: 12px;
             width: 90%;
-            max-width: 700px;
+            max-width: 800px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             animation: slideDown 0.3s ease;
             max-height: 90vh;
@@ -263,6 +263,125 @@
             background: white;
         }
 
+        /* Kit Editor Styles */
+        .kit-editor-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+
+        .kit-editor-row .kit-label {
+            min-width: 120px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .kit-segments {
+            display: flex;
+            flex: 1;
+            gap: 5px;
+            min-height: 60px;
+            align-items: center;
+        }
+
+        .kit-segment {
+            flex: 1;
+            min-width: 40px;
+            height: 60px;
+            border: 3px solid #333;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .kit-segment:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .kit-segment:active {
+            transform: scale(0.95);
+        }
+
+        .kit-btn {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            font-size: 1.5em;
+            font-weight: bold;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kit-btn:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .kit-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Color Picker Modal */
+        .color-picker-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .color-picker-modal.active {
+            display: flex;
+        }
+
+        .color-picker-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .color-picker-content h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .color-picker-content input[type="color"] {
+            width: 200px;
+            height: 200px;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+
+        .color-picker-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
         /* Table */
         .table-container {
             overflow-x: auto;
@@ -322,6 +441,20 @@
             font-size: 0.85em;
             font-weight: 600;
             margin-right: 8px;
+        }
+
+        /* Kit Preview in Table */
+        .kit-preview {
+            display: inline-flex;
+            gap: 2px;
+            align-items: center;
+        }
+
+        .kit-preview-segment {
+            width: 20px;
+            height: 30px;
+            border: 1px solid #333;
+            border-radius: 2px;
         }
 
         .badge {
@@ -455,6 +588,15 @@
             .btn {
                 width: 100%;
             }
+
+            .kit-editor-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .kit-segments {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -529,6 +671,7 @@
                         <th>Nazwa</th>
                         <th>Skrót</th>
                         <th>Nazwa 16</th>
+                        <th>Stroje</th>
                         <th>Link</th>
                         <th>Akcje</th>
                     </tr>
@@ -589,6 +732,36 @@
                     <div class="form-help">Wybierz logo z dostępnych plików</div>
                 </div>
 
+                <!-- Kits Section -->
+                <div class="form-group">
+                    <label>Stroje zespołu<span class="required">*</span></label>
+                    <div class="form-help" style="margin-bottom: 15px;">
+                        Kliknij w segment, aby zmienić kolor. Min: 1 kolor, Max: 5 kolorów na komplet.
+                    </div>
+                    
+                    <!-- Kit 1 - Domowy -->
+                    <div class="kit-editor-row">
+                        <span class="kit-label">🏠 Komplet 1</span>
+                        <button type="button" class="kit-btn" onclick="removeKitColor(1)" id="kit1-remove">-</button>
+                        <div class="kit-segments" id="kit1-segments"></div>
+                        <button type="button" class="kit-btn" onclick="addKitColor(1)" id="kit1-add">+</button>
+                    </div>
+                    <!-- Kit 2 - Wyjazdowy -->
+                    <div class="kit-editor-row">
+                        <span class="kit-label">✈️ Komplet 2</span>
+                        <button type="button" class="kit-btn" onclick="removeKitColor(2)" id="kit2-remove">-</button>
+                        <div class="kit-segments" id="kit2-segments"></div>
+                        <button type="button" class="kit-btn" onclick="addKitColor(2)" id="kit2-add">+</button>
+                    </div>
+                    <!-- Kit 3 - Rezerwowy -->
+                    <div class="kit-editor-row">
+                        <span class="kit-label">🔄 Komplet 3</span>
+                        <button type="button" class="kit-btn" onclick="removeKitColor(3)" id="kit3-remove">-</button>
+                        <div class="kit-segments" id="kit3-segments"></div>
+                        <button type="button" class="kit-btn" onclick="addKitColor(3)" id="kit3-add">+</button>
+                    </div>
+                </div>
+
                 <div class="form-group" id="group-link">
                     <label for="link">Link do strony zespołu</label>
                     <input type="url" id="link" name="link" maxlength="500">
@@ -615,606 +788,18 @@
         </div>
     </div>
 
-    <script>
-        let currentTeamId = null;
-        let currentTempId = null;
-        let isEditingTemp = false;
-        let availableLogos = [];
-        let hasTeamsUrl = false;
+    <!-- Color Picker Modal -->
+    <div id="colorPickerModal" class="color-picker-modal">
+        <div class="color-picker-content">
+            <h3>Wybierz kolor</h3>
+            <input type="color" id="colorPicker" value="#ffffff">
+            <div class="color-picker-actions">
+                <button class="btn btn-secondary" onclick="cancelColorPicker()">Anuluj</button>
+                <button class="btn btn-primary" onclick="confirmColorPicker()">OK</button>
+            </div>
+        </div>
+    </div>
 
-        // Load on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadLogos();
-            checkCompetitionScraper();
-            loadAll();
-        });
-
-        // Check if competition has teams_url
-        function checkCompetitionScraper() {
-            fetch('/api/competition/current')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success' && data.competition) {
-                        console.log(data.competition.variable);
-                        try {
-                            const variable = JSON.parse(data.competition.variable);
-                            if (variable.scraper && variable.scraper.teams_url) {
-                                console.log(variable.scraper.teams_url);
-                                hasTeamsUrl = true;
-                                document.getElementById('scrapeButton').style.display = 'inline-block';
-                            }
-                        } catch (e) {
-                            console.error('Error parsing Variable:', e);
-                        }
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        // Load available logos
-        function loadLogos() {
-            fetch('/api/logos')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        availableLogos = data.logos;
-                        updateLogoSelect();
-                    }
-                })
-                .catch(error => console.error('Error loading logos:', error));
-        }
-
-        // Update logo select
-        function updateLogoSelect() {
-            const select = document.getElementById('logo');
-            select.innerHTML = '<option value="">-- Wybierz logo --</option>';
-            
-            availableLogos.forEach(logo => {
-                const option = document.createElement('option');
-                option.value = logo.url;
-                option.textContent = logo.name;
-                select.appendChild(option);
-            });
-        }
-
-        // Update logo preview
-        function updateLogoPreview() {
-            const select = document.getElementById('logo');
-            const preview = document.getElementById('logoPreview');
-            
-            if (select.value) {
-                preview.src = select.value;
-                preview.style.display = 'block';
-            } else {
-                preview.style.display = 'none';
-            }
-        }
-
-        // Load all teams
-        function loadAll() {
-            loadTeams();
-            loadTempTeams();
-        }
-
-        // Load regular teams
-        function loadTeams() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('teamsTable').style.display = 'none';
-            document.getElementById('emptyState').style.display = 'none';
-
-            fetch('/api/teams')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('loading').style.display = 'none';
-                    
-                    if (data.status === 'success' && data.teams && data.teams.length > 0) {
-                        renderTeams(data.teams);
-                    } else {
-                        document.getElementById('emptyState').style.display = 'block';
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('loading').style.display = 'none';
-                    console.error('Error:', error);
-                    showAlert('Błąd ładowania zespołów', 'error');
-                });
-        }
-
-        // Load temporary teams
-        function loadTempTeams() {
-            document.getElementById('tempLoading').style.display = 'block';
-            document.getElementById('tempTeamsTable').style.display = 'none';
-            document.getElementById('tempEmptyState').style.display = 'none';
-
-            fetch('/api/teams/temp')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Temp teams response:', data); // DODANE - debug
-                    document.getElementById('tempLoading').style.display = 'none';
-                    
-                    if (data.status === 'success') {
-                        console.log('Teams array:', data.teams); // DODANE - debug
-                        console.log('Teams length:', data.teams ? data.teams.length : 0); // DODANE - debug
-                        
-                        if (data.teams && data.teams.length > 0) {
-                            document.getElementById('tempTeamsSection').style.display = 'block';
-                            renderTempTeams(data.teams);
-                            renderTempStats(data.statistics);
-                            
-                            // Show import all button if there are complete teams
-                            if (data.statistics && data.statistics.complete > 0) {
-                                document.getElementById('importAllBtn').style.display = 'inline-block';
-                            } else {
-                                document.getElementById('importAllBtn').style.display = 'none';
-                            }
-                        } else {
-                            console.log('No temp teams found'); // DODANE - debug
-                            document.getElementById('tempTeamsSection').style.display = 'none';
-                            document.getElementById('importAllBtn').style.display = 'none';
-                        }
-                    } else {
-                        console.error('Error status in response:', data); // DODANE - debug
-                        document.getElementById('tempTeamsSection').style.display = 'none';
-                        document.getElementById('importAllBtn').style.display = 'none';
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('tempLoading').style.display = 'none';
-                    console.error('Error loading temp teams:', error);
-                    showAlert('Błąd ładowania tymczasowych zespołów', 'error');
-                });
-        }
-
-        // Render temporary stats
-        function renderTempStats(stats) {
-            const container = document.getElementById('tempStats');
-            container.innerHTML = `
-                <div class="stat-card">
-                    <h3>Łącznie</h3>
-                    <div class="value">${stats.total || 0}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Kompletne</h3>
-                    <div class="value" style="color: #28a745;">${stats.complete || 0}</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Niekompletne</h3>
-                    <div class="value" style="color: #ffc107;">${stats.incomplete || 0}</div>
-                </div>
-            `;
-        }
-
-        // Render temporary teams
-        function renderTempTeams(teams) {
-            const tbody = document.getElementById('tempTeamsBody');
-            tbody.innerHTML = '';
-
-            teams.forEach(team => {
-                const tr = document.createElement('tr');
-                
-                const isComplete = team.short_name && team.name_16 && team.logo;
-                const statusBadge = isComplete 
-                    ? '<span class="badge badge-complete">Kompletny</span>'
-                    : '<span class="badge badge-incomplete">Niekompletny</span>';
-                
-                const logoCell = team.logo 
-                    ? `<img src="${team.logo}" alt="${team.name}" class="team-logo">`
-                    : '-';
-                
-                const shortName = team.short_name || '-';
-                const name16 = team.name_16 || '-';
-                
-                tr.innerHTML = `
-                    <td>${statusBadge}</td>
-                    <td class="team-name">${team.name}</td>
-                    <td>${shortName}</td>
-                    <td>${name16}</td>
-                    <td>${logoCell}</td>
-                    <td><small>${team.source}</small></td>
-                    <td class="action-buttons">
-                        <button class="btn btn-primary btn-sm" onclick="openEditTempModal('${team.temp_id}')">
-                            ✏️ Edytuj
-                        </button>
-                        ${isComplete ? `
-                            <button class="btn btn-success btn-sm" onclick="importTempTeam('${team.temp_id}')">
-                                💾 Importuj
-                            </button>
-                        ` : ''}
-                        <button class="btn btn-danger btn-sm" onclick="deleteTempTeam('${team.temp_id}', '${team.name}')">
-                            🗑️ Usuń
-                        </button>
-                    </td>
-                `;
-                
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('tempTeamsTable').style.display = 'table';
-        }
-
-        // Render regular teams
-        function renderTeams(teams) {
-            const tbody = document.getElementById('teamsBody');
-            tbody.innerHTML = '';
-
-            teams.forEach(team => {
-                const tr = document.createElement('tr');
-                
-                const logoUrl = team.logo || '/static/images/default-logo.png';
-                const linkCell = team.link ? `<a href="${team.link}" target="_blank">🔗</a>` : '-';
-                
-                tr.innerHTML = `
-                    <td><img src="${logoUrl}" alt="${team.name}" class="team-logo"></td>
-                    <td class="team-name">${team.name}</td>
-                    <td><span class="team-short">${team.short_name}</span></td>
-                    <td>${team.name_16}</td>
-                    <td>${linkCell}</td>
-                    <td class="action-buttons">
-                        <button class="btn btn-primary btn-sm" onclick="openEditModal(${team.id})">
-                            ✏️ Edytuj
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTeam(${team.id}, '${team.name}')">
-                            🗑️ Usuń
-                        </button>
-                    </td>
-                `;
-                
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('teamsTable').style.display = 'table';
-        }
-
-        // Scrape teams
-        function scrapeTeams() {
-            const btn = document.getElementById('scrapeButton');
-            btn.disabled = true;
-            btn.textContent = '⏳ Pobieranie...';
-
-            fetch('/api/scrape/teams', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    competition_id: 1 // TODO: Get from current competition
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.textContent = '🌐 Pobierz zespoły';
-                
-                if (data.status === 'success') {
-                    showAlert(`✓ ${data.message}. Nowych: ${data.new}, Łącznie w pliku: ${data.total}`, 'success');
-                    loadTempTeams();
-                } else {
-                    showAlert('✗ ' + (data.error || 'Błąd pobierania zespołów'), 'error');
-                }
-            })
-            .catch(error => {
-                btn.disabled = false;
-                btn.textContent = '🌐 Pobierz zespoły';
-                console.error('Error:', error);
-                showAlert('✗ Błąd połączenia', 'error');
-            });
-        }
-
-        // Open create modal
-        function openCreateModal() {
-            currentTeamId = null;
-            currentTempId = null;
-            isEditingTemp = false;
-            document.getElementById('modalTitle').textContent = 'Dodaj nowy zespół';
-            document.getElementById('teamId').value = '';
-            document.getElementById('teamForm').reset();
-            clearValidationErrors();
-            document.getElementById('logoPreview').style.display = 'none';
-            document.getElementById('teamModal').classList.add('active');
-        }
-
-        // Open edit temp modal
-        function openEditTempModal(tempId) {
-            currentTempId = tempId;
-            currentTeamId = null;
-            isEditingTemp = true;
-            document.getElementById('modalTitle').textContent = 'Edytuj zespół tymczasowy';
-            clearValidationErrors();
-
-            fetch(`/api/teams/temp/${tempId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const team = data.team;
-                        document.getElementById('teamId').value = '';
-                        document.getElementById('name').value = team.name || '';
-                        document.getElementById('short_name').value = team.short_name || '';
-                        document.getElementById('name_16').value = team.name_16 || '';
-                        document.getElementById('logo').value = team.logo || '';
-                        document.getElementById('link').value = team.link || '';
-                        document.getElementById('foreign_id').value = team.foreign_id || '';
-                        
-                        updateLogoPreview();
-                        document.getElementById('teamModal').classList.add('active');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showAlert('Błąd ładowania danych zespołu', 'error');
-                });
-        }
-
-        // Open edit modal (regular team)
-        function openEditModal(teamId) {
-            currentTeamId = teamId;
-            currentTempId = null;
-            isEditingTemp = false;
-            document.getElementById('modalTitle').textContent = 'Edytuj zespół';
-            clearValidationErrors();
-
-            fetch(`/api/teams/${teamId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const team = data.team;
-                        document.getElementById('teamId').value = team.id;
-                        document.getElementById('name').value = team.name || '';
-                        document.getElementById('short_name').value = team.short_name || '';
-                        document.getElementById('name_16').value = team.name_16 || '';
-                        document.getElementById('logo').value = team.logo || '';
-                        document.getElementById('link').value = team.link || '';
-                        document.getElementById('foreign_id').value = team.foreign_id || '';
-                        
-                        updateLogoPreview();
-                        document.getElementById('teamModal').classList.add('active');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showAlert('Błąd ładowania danych zespołu', 'error');
-                });
-        }
-
-        // Close modal
-        function closeModal() {
-            document.getElementById('teamModal').classList.remove('active');
-            document.getElementById('teamForm').reset();
-            clearValidationErrors();
-            currentTeamId = null;
-            currentTempId = null;
-            isEditingTemp = false;
-            document.getElementById('logoPreview').style.display = 'none';
-        }
-
-        // Save team
-        function saveTeam() {
-            clearValidationErrors();
-
-            const teamData = {
-                name: document.getElementById('name').value,
-                short_name: document.getElementById('short_name').value,
-                name_16: document.getElementById('name_16').value,
-                logo: document.getElementById('logo').value,
-                link: document.getElementById('link').value || null,
-                foreign_id: document.getElementById('foreign_id').value || null
-            };
-
-            let url, method;
-            
-            if (isEditingTemp) {
-                // Update temp team
-                url = `/api/teams/temp/${currentTempId}`;
-                method = 'PUT';
-                
-                // For temp team, we need to include all fields including temp_id
-                teamData.temp_id = currentTempId;
-            } else if (currentTeamId) {
-                // Update regular team
-                url = `/api/teams/${currentTeamId}`;
-                method = 'PUT';
-            } else {
-                // Create new regular team
-                url = '/api/teams';
-                method = 'POST';
-            }
-
-            fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(teamData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    closeModal();
-                    if (isEditingTemp) {
-                        loadTempTeams();
-                    } else {
-                        loadTeams();
-                    }
-                    showAlert(data.message || 'Zespół zapisany pomyślnie', 'success');
-                } else if (data.status === 'validation_error') {
-                    displayValidationErrors(data.errors);
-                } else {
-                    showAlert(data.error || 'Błąd zapisywania zespołu', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('Błąd połączenia z serwerem', 'error');
-            });
-        }
-
-        // Import temp team
-        function importTempTeam(tempId) {
-            if (!confirm('Czy na pewno chcesz zaimportować ten zespół do bazy danych?')) {
-                return;
-            }
-
-            fetch(`/api/teams/import/${tempId}`, {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showAlert('✓ ' + (data.message || 'Zespół zaimportowany'), 'success');
-                    loadAll(); // Reload both tables
-                } else {
-                    showAlert('✗ ' + (data.error || 'Błąd importowania'), 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('✗ Błąd połączenia', 'error');
-            });
-        }
-
-        // Import all complete teams
-        function importAllComplete() {
-            if (!confirm('Czy na pewno chcesz zaimportować wszystkie kompletne zespoły?')) {
-                return;
-            }
-
-            const btn = document.getElementById('importAllBtn');
-            btn.disabled = true;
-            btn.textContent = '⏳ Importowanie...';
-
-            fetch('/api/teams/import-all', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.textContent = '💾 Importuj wszystkie kompletne';
-                
-                if (data.status === 'success') {
-                    let message = `✓ Zaimportowano ${data.imported} zespołów`;
-                    if (data.errors && data.errors.length > 0) {
-                        message += `\n⚠️ Błędy: ${data.errors.length}`;
-                    }
-                    showAlert(message, 'success');
-                    loadAll(); // Reload both tables
-                } else {
-                    showAlert('✗ Błąd importowania', 'error');
-                }
-            })
-            .catch(error => {
-                btn.disabled = false;
-                btn.textContent = '💾 Importuj wszystkie kompletne';
-                console.error('Error:', error);
-                showAlert('✗ Błąd połączenia', 'error');
-            });
-        }
-
-        // Delete temp team
-        function deleteTempTeam(tempId, teamName) {
-            if (!confirm(`Czy na pewno chcesz usunąć tymczasowy zespół "${teamName}"?`)) {
-                return;
-            }
-
-            fetch(`/api/teams/temp/${tempId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    loadTempTeams();
-                    showAlert(data.message || 'Zespół usunięty', 'success');
-                } else {
-                    showAlert(data.error || 'Błąd usuwania', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('Błąd połączenia', 'error');
-            });
-        }
-
-        // Delete regular team
-        function deleteTeam(teamId, teamName) {
-            if (!confirm(`Czy na pewno chcesz usunąć zespół "${teamName}"?`)) {
-                return;
-            }
-
-            fetch(`/api/teams/${teamId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    loadTeams();
-                    showAlert(data.message || 'Zespół usunięty', 'success');
-                } else {
-                    showAlert(data.error || 'Błąd usuwania zespołu', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('Błąd połączenia z serwerem', 'error');
-            });
-        }
-
-        // Display validation errors
-        function displayValidationErrors(errors) {
-            errors.forEach(error => {
-                const groupElement = document.getElementById(`group-${error.field}`);
-                const errorElement = document.getElementById(`error-${error.field}`);
-                
-                if (groupElement && errorElement) {
-                    groupElement.classList.add('error');
-                    errorElement.textContent = error.message;
-                }
-            });
-        }
-
-        // Clear validation errors
-        function clearValidationErrors() {
-            const errorGroups = document.querySelectorAll('.form-group.error');
-            errorGroups.forEach(group => {
-                group.classList.remove('error');
-            });
-            
-            const errorMessages = document.querySelectorAll('.error-message');
-            errorMessages.forEach(msg => {
-                msg.textContent = '';
-            });
-        }
-
-        // Show alert
-        function showAlert(message, type) {
-            const alert = document.getElementById('alert');
-            alert.textContent = message;
-            alert.className = 'alert active';
-            
-            if (type === 'success') {
-                alert.classList.add('alert-success');
-            } else if (type === 'info') {
-                alert.classList.add('alert-info');
-            } else {
-                alert.classList.add('alert-error');
-            }
-
-            setTimeout(() => {
-                alert.classList.remove('active');
-            }, 5000);
-        }
-
-        // Close modal on outside click
-        window.onclick = function(event) {
-            const modal = document.getElementById('teamModal');
-            if (event.target === modal) {
-                closeModal();
-            }
-        }
-
-        // Close modal on ESC key
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeModal();
-            }
-        });
-    </script>
+    <script src="/static/js/teams.js"></script>
 </body>
 </html>

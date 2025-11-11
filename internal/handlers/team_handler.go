@@ -26,12 +26,19 @@ func NewTeamHandler(dbManager *database.Manager) *TeamHandler {
 
 // TeamRequest - struktura żądania dla tworzenia/edycji zespołu
 type TeamRequest struct {
-	Name      string  `json:"name"`
-	ForeignID *string `json:"foreign_id"`
-	ShortName string  `json:"short_name"`
-	Name16    string  `json:"name_16"`
-	Logo      string  `json:"logo"`
-	Link      *string `json:"link"`
+	Name      string       `json:"name"`
+	ForeignID *string      `json:"foreign_id"`
+	ShortName string       `json:"short_name"`
+	Name16    string       `json:"name_16"`
+	Logo      string       `json:"logo"`
+	Link      *string      `json:"link"`
+	Kits      []KitRequest `json:"kits"` // NOWE - stroje
+}
+
+// KitRequest - struktura żądania dla stroju
+type KitRequest struct {
+	Type   int      `json:"type"`   // 1=home, 2=away, 3=extra
+	Colors []string `json:"colors"` // Kolory w formacie HEX
 }
 
 // ValidationError - struktura błędu walidacji
@@ -161,15 +168,64 @@ func (h *TeamHandler) validateTeamRequest(req TeamRequest, isUpdate bool, teamID
 		})
 	}
 
+	// NOWA WALIDACJA - Kits
+	if len(req.Kits) != 3 {
+		errors = append(errors, ValidationError{
+			Field:   "kits",
+			Message: "Zespół musi mieć dokładnie 3 komplety strojów",
+		})
+	} else {
+		for i, kit := range req.Kits {
+			// Sprawdź typ (1, 2, 3)
+			if kit.Type < 1 || kit.Type > 3 {
+				errors = append(errors, ValidationError{
+					Field:   "kits",
+					Message: "Nieprawidłowy typ stroju",
+				})
+			}
+
+			// Sprawdź ilość kolorów (1-5)
+			if len(kit.Colors) < 1 || len(kit.Colors) > 5 {
+				errors = append(errors, ValidationError{
+					Field:   "kits",
+					Message: "Każdy strój musi mieć od 1 do 5 kolorów",
+				})
+			}
+
+			// Sprawdź format kolorów HEX
+			for _, color := range kit.Colors {
+				if !strings.HasPrefix(color, "#") || len(color) != 7 {
+					errors = append(errors, ValidationError{
+						Field:   "kits",
+						Message: "Nieprawidłowy format koloru (wymagany #RRGGBB)",
+					})
+					break
+				}
+			}
+
+			// Sprawdź unikalność typu
+			for j := i + 1; j < len(req.Kits); j++ {
+				if kit.Type == req.Kits[j].Type {
+					errors = append(errors, ValidationError{
+						Field:   "kits",
+						Message: "Typy strojów muszą być unikalne",
+					})
+					break
+				}
+			}
+		}
+	}
+
 	return errors
 }
 
-// ListTeams - lista wszystkich zespołów
+// ListTeams - lista wszystkich zespołów z strojami
 func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	db := h.dbManager.GetDB()
 
 	var teams []models.Team
-	if err := db.Order("name ASC").Find(&teams).Error; err != nil {
+	// Preload Kits i KitColors
+	if err := db.Preload("Kits.KitColors").Order("name ASC").Find(&teams).Error; err != nil {
 		http.Error(w, "Błąd pobierania zespołów", http.StatusInternalServerError)
 		return
 	}
@@ -182,7 +238,7 @@ func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetTeam - pobiera pojedynczy zespół
+// GetTeam - pobiera pojedynczy zespół ze strojami
 func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	teamID, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -194,7 +250,7 @@ func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	db := h.dbManager.GetDB()
 	var team models.Team
 
-	if err := db.Preload("Players").Preload("Coaches").Preload("Kits").First(&team, teamID).Error; err != nil {
+	if err := db.Preload("Players").Preload("Coaches").Preload("Kits.KitColors").First(&team, teamID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Zespół nie znaleziony", http.StatusNotFound)
 			return
@@ -210,12 +266,21 @@ func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// CreateTeam - tworzy nowy zespół
+// CreateTeam - tworzy nowy zespół ze strojami
 func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	var req TeamRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Błąd dekodowania JSON", http.StatusBadRequest)
 		return
+	}
+
+	// Jeśli nie podano strojów, ustaw domyślne
+	if len(req.Kits) == 0 {
+		req.Kits = []KitRequest{
+			{Type: 1, Colors: []string{"#ffffff"}},
+			{Type: 2, Colors: []string{"#000000"}},
+			{Type: 3, Colors: []string{"#66ff73"}},
+		}
 	}
 
 	// Walidacja
@@ -230,6 +295,16 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := h.dbManager.GetDB()
+
+	// Rozpocznij transakcję
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// Utwórz zespół
 	team := models.Team{
 		Name:      req.Name,
@@ -240,8 +315,8 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		Link:      req.Link,
 	}
 
-	db := h.dbManager.GetDB()
-	if err := db.Create(&team).Error; err != nil {
+	if err := tx.Create(&team).Error; err != nil {
+		tx.Rollback()
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "error",
@@ -249,6 +324,56 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// Utwórz stroje
+	for _, kitReq := range req.Kits {
+		kit := models.Kit{
+			TeamID: team.ID,
+			Type:   kitReq.Type,
+		}
+
+		if err := tx.Create(&kit).Error; err != nil {
+			tx.Rollback()
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "error",
+				"error":  "Błąd tworzenia stroju: " + err.Error(),
+			})
+			return
+		}
+
+		// Utwórz kolory stroju
+		for order, color := range kitReq.Colors {
+			kitColor := models.KitColor{
+				KitID:      kit.ID,
+				ColorOrder: order + 1, // 1-based index
+				Color:      color,
+			}
+
+			if err := tx.Create(&kitColor).Error; err != nil {
+				tx.Rollback()
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"status": "error",
+					"error":  "Błąd tworzenia koloru stroju: " + err.Error(),
+				})
+				return
+			}
+		}
+	}
+
+	// Zatwierdź transakcję
+	if err := tx.Commit().Error; err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "Błąd zatwierdzania transakcji: " + err.Error(),
+		})
+		return
+	}
+
+	// Przeładuj zespół ze strojami
+	db.Preload("Kits.KitColors").First(&team, team.ID)
 
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
@@ -259,7 +384,7 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// UpdateTeam - aktualizuje zespół
+// UpdateTeam - aktualizuje zespół ze strojami
 func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	teamID, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -286,10 +411,11 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sprawdź czy zespół istnieje
 	db := h.dbManager.GetDB()
+
+	// Sprawdź czy zespół istnieje
 	var team models.Team
-	if err := db.First(&team, teamID).Error; err != nil {
+	if err := db.Preload("Kits.KitColors").First(&team, teamID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Zespół nie znaleziony", http.StatusNotFound)
 			return
@@ -298,7 +424,15 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Aktualizuj dane
+	// Rozpocznij transakcję
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Aktualizuj dane podstawowe
 	team.Name = req.Name
 	team.ForeignID = req.ForeignID
 	team.ShortName = req.ShortName
@@ -306,7 +440,8 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	team.Logo = req.Logo
 	team.Link = req.Link
 
-	if err := db.Save(&team).Error; err != nil {
+	if err := tx.Save(&team).Error; err != nil {
+		tx.Rollback()
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "error",
@@ -314,6 +449,66 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// Aktualizuj stroje jeśli podano
+	if len(req.Kits) > 0 {
+		// Usuń wszystkie kolory dla każdego stroju
+		for _, kit := range team.Kits {
+			if err := tx.Where("kit_id = ?", kit.ID).Delete(&models.KitColor{}).Error; err != nil {
+				tx.Rollback()
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"status": "error",
+					"error":  "Błąd usuwania starych kolorów: " + err.Error(),
+				})
+				return
+			}
+		}
+
+		// Aktualizuj każdy strój
+		for _, kitReq := range req.Kits {
+			// Znajdź odpowiedni Kit
+			var kit models.Kit
+			for _, k := range team.Kits {
+				if k.Type == kitReq.Type {
+					kit = k
+					break
+				}
+			}
+
+			// Dodaj nowe kolory
+			for order, color := range kitReq.Colors {
+				kitColor := models.KitColor{
+					KitID:      kit.ID,
+					ColorOrder: order + 1,
+					Color:      color,
+				}
+
+				if err := tx.Create(&kitColor).Error; err != nil {
+					tx.Rollback()
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"status": "error",
+						"error":  "Błąd dodawania koloru: " + err.Error(),
+					})
+					return
+				}
+			}
+		}
+	}
+
+	// Zatwierdź transakcję
+	if err := tx.Commit().Error; err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "Błąd zatwierdzania transakcji: " + err.Error(),
+		})
+		return
+	}
+
+	// Przeładuj zespół ze strojami
+	db.Preload("Kits.KitColors").First(&team, team.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -323,7 +518,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DeleteTeam - usuwa zespół
+// DeleteTeam - usuwa zespół (pozostaje bez zmian)
 func (h *TeamHandler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	teamID, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -361,7 +556,7 @@ func (h *TeamHandler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Usuń zespół (soft delete)
+	// Usuń zespół (soft delete) - cascade usunie Kits i KitColors
 	if err := db.Delete(&team).Error; err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]interface{}{
