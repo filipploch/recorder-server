@@ -151,17 +151,26 @@ func (s *TeamImportService) ValidateBeforeImport(competitionID, tempID string) (
 	missing := tempTeam.GetMissingFields()
 	isValid := len(missing) == 0
 	
-	// Dodatkowa walidacja - sprawdź czy ShortName i Name16 nie są już w bazie
+	// Dodatkowa walidacja - sprawdź czy Name, ShortName i Name16 nie są już w bazie
 	if isValid {
 		db := s.dbManager.GetDB()
 		
+		// Sprawdź Name (nowe)
 		var count int64
+		db.Model(&models.Team{}).Where("name = ?", tempTeam.Name).Count(&count)
+		if count > 0 {
+			missing = append(missing, "name already exists")
+			isValid = false
+		}
+		
+		// Sprawdź ShortName
 		db.Model(&models.Team{}).Where("short_name = ?", *tempTeam.ShortName).Count(&count)
 		if count > 0 {
 			missing = append(missing, "short_name already exists")
 			isValid = false
 		}
 		
+		// Sprawdź Name16
 		db.Model(&models.Team{}).Where("name_16 = ?", *tempTeam.Name16).Count(&count)
 		if count > 0 {
 			missing = append(missing, "name_16 already exists")

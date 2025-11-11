@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zarządzanie zespołami</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+        }
+
+        .actions {
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 1em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 1.8em;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group label .required {
+            color: #dc3545;
+            margin-left: 3px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group.error input,
+        .form-group.error textarea {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .form-group.error .error-message {
+            display: block;
+        }
+
+        .form-help {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        thead {
+            background: #667eea;
+            color: white;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            transition: background-color 0.3s;
+        }
+
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .team-logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .team-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .team-short {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .action-buttons {
+            white-space: nowrap;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            margin-right: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 20px auto;
+                padding: 20px;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚽ Zarządzanie zespołami</h1>
+
+        <!-- Alert -->
+        <div id="alert" class="alert"></div>
+
+        <!-- Actions -->
+        <div class="actions">
+            <button class="btn btn-primary" onclick="openCreateModal()">
+                ➕ Dodaj nowy zespół
+            </button>
+            <button class="btn btn-secondary" onclick="loadTeams()">
+                🔄 Odśwież listę
+            </button>
+        </div>
+
+        <!-- Teams Table -->
+        <div class="table-container">
+            <div id="loading" class="loading">Ładowanie zespołów...</div>
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">⚽</div>
+                <h3>Brak zespołów</h3>
+                <p>Dodaj pierwszy zespół, aby rozpocząć</p>
+            </div>
+            <table id="teamsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Logo</th>
+                        <th>Nazwa</th>
+                        <th>Skrót</th>
+                        <th>Nazwa 16</th>
+                        <th>Link</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody id="teamsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal: Create/Edit Team -->
+    <div id="teamModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Dodaj nowy zespół</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+
+            <form id="teamForm" onsubmit="return false;">
+                <input type="hidden" id="teamId" value="">
+
+                <div class="form-group" id="group-name">
+                    <label for="name">
+                        Nazwa zespołu<span class="required">*</span>
+                    </label>
+                    <input type="text" id="name" name="name" maxlength="255" required>
+                    <div class="error-message" id="error-name"></div>
+                    <div class="form-help">Pełna oficjalna nazwa zespołu</div>
+                </div>
+
+                <div class="form-group" id="group-short_name">
+                    <label for="short_name">
+                        Skrót (3 znaki)<span class="required">*</span>
+                    </label>
+                    <input type="text" id="short_name" name="short_name" maxlength="3" required>
+                    <div class="error-message" id="error-short_name"></div>
+                    <div class="form-help">Dokładnie 3 znaki, np. LEG, WIS, JAG</div>
+                </div>
+
+                <div class="form-group" id="group-name_16">
+                    <label for="name_16">
+                        Nazwa 16-znakowa<span class="required">*</span>
+                    </label>
+                    <input type="text" id="name_16" name="name_16" maxlength="16" required>
+                    <div class="error-message" id="error-name_16"></div>
+                    <div class="form-help">Maksymalnie 16 znaków</div>
+                </div>
+
+                <div class="form-group" id="group-logo">
+                    <label for="logo">
+                        URL logo<span class="required">*</span>
+                    </label>
+                    <input type="url" id="logo" name="logo" maxlength="500" required>
+                    <div class="error-message" id="error-logo"></div>
+                    <div class="form-help">Link do grafiki logo zespołu</div>
+                </div>
+
+                <div class="form-group" id="group-link">
+                    <label for="link">Link do strony zespołu</label>
+                    <input type="url" id="link" name="link" maxlength="500">
+                    <div class="error-message" id="error-link"></div>
+                    <div class="form-help">Opcjonalnie - strona www zespołu</div>
+                </div>
+
+                <div class="form-group" id="group-foreign_id">
+                    <label for="foreign_id">Foreign ID</label>
+                    <input type="text" id="foreign_id" name="foreign_id" maxlength="255">
+                    <div class="error-message" id="error-foreign_id"></div>
+                    <div class="form-help">Opcjonalnie - ID z zewnętrznego systemu</div>
+                </div>
+
+                <div style="margin-top: 30px; text-align: right;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Anuluj
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="saveTeam()">
+                        💾 Zapisz
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentTeamId = null;
+
+        // Load teams on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTeams();
+        });
+
+        // Load teams from API
+        function loadTeams() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('teamsTable').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+
+            fetch('/api/teams')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    if (data.status === 'success' && data.teams && data.teams.length > 0) {
+                        renderTeams(data.teams);
+                    } else {
+                        document.getElementById('emptyState').style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('loading').style.display = 'none';
+                    console.error('Error:', error);
+                    showAlert('Błąd ładowania zespołów', 'error');
+                });
+        }
+
+        // Render teams table
+        function renderTeams(teams) {
+            const tbody = document.getElementById('teamsBody');
+            tbody.innerHTML = '';
+
+            teams.forEach(team => {
+                const tr = document.createElement('tr');
+                
+                const logoUrl = team.logo || '/static/images/default-logo.png';
+                const linkCell = team.link ? `<a href="${team.link}" target="_blank">🔗</a>` : '-';
+                
+                tr.innerHTML = `
+                    <td><img src="${logoUrl}" alt="${team.name}" class="team-logo"></td>
+                    <td class="team-name">${team.name}</td>
+                    <td><span class="team-short">${team.short_name}</span></td>
+                    <td>${team.name_16}</td>
+                    <td>${linkCell}</td>
+                    <td class="action-buttons">
+                        <button class="btn btn-primary btn-sm" onclick="openEditModal(${team.id})">
+                            ✏️ Edytuj
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTeam(${team.id}, '${team.name}')">
+                            🗑️ Usuń
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('teamsTable').style.display = 'table';
+        }
+
+        // Open create modal
+        function openCreateModal() {
+            currentTeamId = null;
+            document.getElementById('modalTitle').textContent = 'Dodaj nowy zespół';
+            document.getElementById('teamId').value = '';
+            document.getElementById('teamForm').reset();
+            clearValidationErrors();
+            document.getElementById('teamModal').classList.add('active');
+        }
+
+        // Open edit modal
+        function openEditModal(teamId) {
+            currentTeamId = teamId;
+            document.getElementById('modalTitle').textContent = 'Edytuj zespół';
+            clearValidationErrors();
+
+            // Load team data
+            fetch(`/api/teams/${teamId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const team = data.team;
+                        document.getElementById('teamId').value = team.id;
+                        document.getElementById('name').value = team.name || '';
+                        document.getElementById('short_name').value = team.short_name || '';
+                        document.getElementById('name_16').value = team.name_16 || '';
+                        document.getElementById('logo').value = team.logo || '';
+                        document.getElementById('link').value = team.link || '';
+                        document.getElementById('foreign_id').value = team.foreign_id || '';
+                        
+                        document.getElementById('teamModal').classList.add('active');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('Błąd ładowania danych zespołu', 'error');
+                });
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('teamModal').classList.remove('active');
+            document.getElementById('teamForm').reset();
+            clearValidationErrors();
+            currentTeamId = null;
+        }
+
+        // Save team
+        function saveTeam() {
+            clearValidationErrors();
+
+            const teamData = {
+                name: document.getElementById('name').value,
+                short_name: document.getElementById('short_name').value,
+                name_16: document.getElementById('name_16').value,
+                logo: document.getElementById('logo').value,
+                link: document.getElementById('link').value || null,
+                foreign_id: document.getElementById('foreign_id').value || null
+            };
+
+            const url = currentTeamId ? `/api/teams/${currentTeamId}` : '/api/teams';
+            const method = currentTeamId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(teamData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    closeModal();
+                    loadTeams();
+                    showAlert(data.message || 'Zespół zapisany pomyślnie', 'success');
+                } else if (data.status === 'validation_error') {
+                    displayValidationErrors(data.errors);
+                } else {
+                    showAlert(data.error || 'Błąd zapisywania zespołu', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Błąd połączenia z serwerem', 'error');
+            });
+        }
+
+        // Delete team
+        function deleteTeam(teamId, teamName) {
+            if (!confirm(`Czy na pewno chcesz usunąć zespół "${teamName}"?`)) {
+                return;
+            }
+
+            fetch(`/api/teams/${teamId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    loadTeams();
+                    showAlert(data.message || 'Zespół usunięty', 'success');
+                } else {
+                    showAlert(data.error || 'Błąd usuwania zespołu', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Błąd połączenia z serwerem', 'error');
+            });
+        }
+
+        // Display validation errors
+        function displayValidationErrors(errors) {
+            errors.forEach(error => {
+                const groupElement = document.getElementById(`group-${error.field}`);
+                const errorElement = document.getElementById(`error-${error.field}`);
+                
+                if (groupElement && errorElement) {
+                    groupElement.classList.add('error');
+                    errorElement.textContent = error.message;
+                }
+            });
+        }
+
+        // Clear validation errors
+        function clearValidationErrors() {
+            const errorGroups = document.querySelectorAll('.form-group.error');
+            errorGroups.forEach(group => {
+                group.classList.remove('error');
+            });
+            
+            const errorMessages = document.querySelectorAll('.error-message');
+            errorMessages.forEach(msg => {
+                msg.textContent = '';
+            });
+        }
+
+        // Show alert
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = 'alert active';
+            
+            if (type === 'success') {
+                alert.classList.add('alert-success');
+            } else {
+                alert.classList.add('alert-error');
+            }
+
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 5000);
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('teamModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Close modal on ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

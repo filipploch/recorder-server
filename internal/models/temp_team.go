@@ -17,7 +17,7 @@ type TempTeam struct {
 	ShortName   *string `json:"short_name"`    // Skrót 3-znakowy (opcjonalny)
 	Name16      *string `json:"name_16"`       // Nazwa 16-znakowa (opcjonalny)
 	Logo        *string `json:"logo"`          // URL/ścieżka do logo (opcjonalny)
-	Link        string  `json:"link"`          // Link źródłowy
+	Link        *string `json:"link"`          // Link źródłowy (opcjonalny)
 	ForeignID   *string `json:"foreign_id"`    // ID zewnętrzne
 	Source      string  `json:"source"`        // Źródło danych (np. "mzpn_scraper")
 	ScrapedAt   string  `json:"scraped_at"`    // Data scrapowania
@@ -264,8 +264,8 @@ func (t *TempTeam) ToTeam() (*Team, error) {
 		ShortName: *t.ShortName,
 		Name16:    *t.Name16,
 		Logo:      *t.Logo,
-		Link:      t.Link,
-		ForeignID: t.ForeignID,
+		Link:      t.Link,      // nullable - przekazujemy jako wskaźnik
+		ForeignID: t.ForeignID, // nullable
 	}
 	
 	return team, nil

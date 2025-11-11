@@ -1,6 +1,7 @@
 package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -106,6 +107,7 @@ func main() {
 	databaseHandler := handlers.NewDatabaseHandler(dbManager)
 	scraperHandler := handlers.NewScraperHandler(scraperService)
 	tableHandler := handlers.NewTableHandler(tableService)
+	teamHandler := handlers.NewTeamHandler(dbManager)
 	log.Println("Handlery HTTP zainicjalizowane")
 
 	// Router
@@ -131,6 +133,12 @@ func main() {
 
 	// Strony WWW
 	router.HandleFunc("/", pageHandler.Index).Methods("GET")
+	
+	// Strona zarządzania zespołami
+	router.HandleFunc("/teams", func(w http.ResponseWriter, r *http.Request) {
+		tmpl := template.Must(template.ParseFiles("web/templates/teams.html"))
+		tmpl.Execute(w, nil)
+	}).Methods("GET")
 
 	// API - Kamery
 	router.HandleFunc("/api/start-recording", cameraHandler.StartRecording).Methods("POST")
@@ -179,11 +187,19 @@ func main() {
 	router.HandleFunc("/api/tables/competition/algorithm", tableHandler.GetCompetitionAlgorithmInfo).Methods("GET")
 	router.HandleFunc("/api/tables/compare", tableHandler.CompareTeams).Methods("GET")
 
+	// API - Teams CRUD
+	router.HandleFunc("/api/teams", teamHandler.ListTeams).Methods("GET")
+	router.HandleFunc("/api/teams", teamHandler.CreateTeam).Methods("POST")
+	router.HandleFunc("/api/teams/{id}", teamHandler.GetTeam).Methods("GET")
+	router.HandleFunc("/api/teams/{id}", teamHandler.UpdateTeam).Methods("PUT")
+	router.HandleFunc("/api/teams/{id}", teamHandler.DeleteTeam).Methods("DELETE")
+
 	// Start serwera
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
 	log.Printf("=================================")
 	log.Printf("Serwer uruchomiony na: http://%s", addr)
 	log.Printf("Panel WWW: http://localhost:%s", cfg.Server.Port)
+	log.Printf("Zespoły: http://localhost:%s/teams", cfg.Server.Port)
 	log.Printf("Socket.IO: ws://localhost:%s/socket.io/", cfg.Server.Port)
 	if !needsSetup && dbConfig != nil {
 		log.Printf("Aktualna baza danych: %s", dbManager.GetCurrentDatabaseName())

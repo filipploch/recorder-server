@@ -27,3 +27,11 @@ func (h *PageHandler) Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
+
+// Teams - renderuje stronę zarządzania zespołami
+func (h *PageHandler) Teams(w http.ResponseWriter, r *http.Request) {
+	err := h.templates.ExecuteTemplate(w, "teams.html", nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
