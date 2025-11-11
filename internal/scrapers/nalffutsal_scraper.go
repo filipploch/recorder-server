@@ -89,24 +89,32 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 
 	var teams []models.TempTeam
 
-	// Pobierz liczbę wierszy w tbody
+	// Pobierz liczbę wierszy TYLKO w pierwszej tabeli tbody
 	var rowCount int
 	err := chromedp.Run(ctx,
-		chromedp.Evaluate(`document.querySelectorAll('table tbody tr').length`, &rowCount),
+		chromedp.Evaluate(`document.querySelector('table tbody').querySelectorAll('tr').length`, &rowCount),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("błąd pobierania liczby wierszy: %w", err)
 	}
 
-	log.Printf("NalffutsalScraper: Znaleziono %d wierszy w tabeli", rowCount)
+	log.Printf("NalffutsalScraper: Znaleziono %d wierszy w pierwszej tabeli", rowCount)
 
-	// Iteruj przez każdy wiersz
+	// Iteruj przez każdy wiersz TYLKO w pierwszej tabeli
 	for i := 0; i < rowCount; i++ {
 		var teamData map[string]interface{}
 
 		jsCode := fmt.Sprintf(`
 			(function() {
-				const row = document.querySelectorAll('table tbody tr')[%d];
+				// Pobierz TYLKO pierwszą tabelę
+				const firstTable = document.querySelector('table');
+				if (!firstTable) return null;
+				
+				const tbody = firstTable.querySelector('tbody');
+				if (!tbody) return null;
+				
+				// Pobierz wiersz z PIERWSZEJ tabeli
+				const row = tbody.querySelectorAll('tr')[%d];
 				if (!row) return null;
 				
 				const nameCell = row.querySelector('td.data-name');
@@ -176,7 +184,7 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 			Name:      strings.TrimSpace(name),
 			ShortName: nil,
 			Name16:    nil,
-			Logo:      nil, // ZMIENIONE - ustaw na nil zamiast pobierać z img
+			Logo:      nil,
 			Link:      stringPtr(link),
 			ForeignID: stringPtr(foreignID),
 			Source:    "nalffutsal_scraper",

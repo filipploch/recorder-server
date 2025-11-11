@@ -191,6 +191,14 @@ func main() {
 	// router.HandleFunc("/api/tables/competition/algorithm", tableHandler.GetCompetitionAlgorithmInfo).Methods("GET")
 	// router.HandleFunc("/api/tables/compare", tableHandler.CompareTeams).Methods("GET")
 
+	// API - Team Import (tymczasowe drużyny) - MUSI BYĆ PRZED /api/teams/{id}
+	router.HandleFunc("/api/teams/temp", teamImportHandler.GetTempTeams).Methods("GET")
+	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.GetTempTeam).Methods("GET")
+	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.UpdateTempTeam).Methods("PUT")
+	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.DeleteTempTeam).Methods("DELETE")
+	router.HandleFunc("/api/teams/import/{temp_id}", teamImportHandler.ImportTeam).Methods("POST")
+	router.HandleFunc("/api/teams/import-all", teamImportHandler.ImportAllComplete).Methods("POST")
+
 	// API - Teams CRUD
 	router.HandleFunc("/api/teams", teamHandler.ListTeams).Methods("GET")
 	router.HandleFunc("/api/teams", teamHandler.CreateTeam).Methods("POST")
@@ -198,26 +206,8 @@ func main() {
 	router.HandleFunc("/api/teams/{id}", teamHandler.UpdateTeam).Methods("PUT")
 	router.HandleFunc("/api/teams/{id}", teamHandler.DeleteTeam).Methods("DELETE")
 
-	// API - Team Import (tymczasowe drużyny)
-	// teamImportHandler := handlers.NewTeamImportHandler(dbManager)
-	// teamImportHandler = handlers.NewTeamImportHandler(dbManager)
-	// router.HandleFunc("/api/teams/temp", teamImportHandler.GetTempTeams).Methods("GET")
-	// router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.GetTempTeam).Methods("GET")
-	// router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.UpdateTempTeam).Methods("PUT")
-	// router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.DeleteTempTeam).Methods("DELETE")
-	// router.HandleFunc("/api/teams/import/{temp_id}", teamImportHandler.ImportTeam).Methods("POST")
-	// router.HandleFunc("/api/teams/import-all", teamImportHandler.ImportAllComplete).Methods("POST")
-
 	// API - Logos
 	router.HandleFunc("/api/logos", logoHandler.ListLogos).Methods("GET")
-
-	// API - Team Import (tymczasowe drużyny)
-	router.HandleFunc("/api/teams/temp", teamImportHandler.GetTempTeams).Methods("GET")
-	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.GetTempTeam).Methods("GET")
-	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.UpdateTempTeam).Methods("PUT")
-	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.DeleteTempTeam).Methods("DELETE")
-	router.HandleFunc("/api/teams/import/{temp_id}", teamImportHandler.ImportTeam).Methods("POST")
-	router.HandleFunc("/api/teams/import-all", teamImportHandler.ImportAllComplete).Methods("POST")
 
 	// API - Competition (dodaj endpoint do pobierania info o scraperze)
 	router.HandleFunc("/api/competition/current", func(w http.ResponseWriter, r *http.Request) {
