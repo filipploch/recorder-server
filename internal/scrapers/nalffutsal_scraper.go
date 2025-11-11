@@ -190,6 +190,11 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 			Source:    "nalffutsal_scraper",
 			ScrapedAt: time.Now().Format(time.RFC3339),
 			Notes:     "Zescrapowano automatycznie z nalffutsal.pl",
+			Kits: map[string][]string{
+				"1": {},
+				"2": {},
+				"3": {},
+			},
 		}
 
 		teams = append(teams, tempTeam)

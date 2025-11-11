@@ -132,12 +132,12 @@ function loadKitsFromTeam(team) {
 }
 
 function getKitsForSave() {
-    // Convert kitsData to API format
-    return [
-        { type: 1, colors: kitsData[1] },
-        { type: 2, colors: kitsData[2] },
-        { type: 3, colors: kitsData[3] }
-    ];
+    // Convert kitsData to API format as a map
+    return {
+        "1": kitsData[1],
+        "2": kitsData[2],
+        "3": kitsData[3]
+    };
 }
 
 // ============ API FUNCTIONS ============
@@ -483,14 +483,14 @@ function saveTeam() {
         kits: getKitsForSave() // Include kits data
     };
 
+    console.log("teamData", teamData);
+
     let url, method;
     
     if (isEditingTemp) {
         url = `/api/teams/temp/${currentTempId}`;
         method = 'PUT';
-        teamData.temp_id = currentTempId;
-        // Don't send kits for temp teams
-        delete teamData.kits;
+        // Dla temp teams zawsze wysyłamy kits
     } else if (currentTeamId) {
         url = `/api/teams/${currentTeamId}`;
         method = 'PUT';
@@ -498,7 +498,11 @@ function saveTeam() {
         url = '/api/teams';
         method = 'POST';
     }
-
+    console.log("501");
+    console.log("url", url);
+    console.log("method", method);
+    console.log("currentTempId", currentTempId);
+    console.log("currentTeamId", currentTeamId);
     fetch(url, {
         method: method,
         headers: {
@@ -506,16 +510,33 @@ function saveTeam() {
         },
         body: JSON.stringify(teamData)
     })
-    .then(response => response.json())
+    .then(response => {
+        // Sprawdź status odpowiedzi
+        if (!response.ok) {
+            return response.text().then(text => {
+                throw new Error(`HTTP ${response.status}: ${text}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log("data 519", data);
         if (data.status === 'success') {
             closeModal();
-            if (isEditingTemp) {
+            
+            if (data.imported) {
+                // Drużyna została zaimportowana do bazy
+                showAlert('✓ Drużyna została zaimportowana do bazy danych', 'success');
+                loadAll(); // Odśwież obie tabele
+            } else if (isEditingTemp) {
+                // Drużyna zapisana w pliku tymczasowym
+                showAlert('✓ Zmiany zapisane w pliku tymczasowym', 'success');
                 loadTempTeams();
             } else {
+                // Normalna edycja/tworzenie
+                showAlert(data.message || 'Zespół zapisany pomyślnie', 'success');
                 loadTeams();
             }
-            showAlert(data.message || 'Zespół zapisany pomyślnie', 'success');
         } else if (data.status === 'validation_error') {
             displayValidationErrors(data.errors);
         } else {
@@ -524,7 +545,7 @@ function saveTeam() {
     })
     .catch(error => {
         console.error('Error:', error);
-        showAlert('Błąd połączenia z serwerem', 'error');
+        showAlert('Błąd: ' + error.message, 'error');
     });
 }
 

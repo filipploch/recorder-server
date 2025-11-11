@@ -112,6 +112,7 @@ func main() {
 	teamHandler := handlers.NewTeamHandler(dbManager)
 	logoHandler := handlers.NewLogoHandler()
 	teamImportHandler := handlers.NewTeamImportHandler(dbManager)
+	teamKitHandler := handlers.NewTeamKitHandler(dbManager)
 	log.Println("Handlery HTTP zainicjalizowane")
 
 	// Router
@@ -205,6 +206,9 @@ func main() {
 	router.HandleFunc("/api/teams/{id}", teamHandler.GetTeam).Methods("GET")
 	router.HandleFunc("/api/teams/{id}", teamHandler.UpdateTeam).Methods("PUT")
 	router.HandleFunc("/api/teams/{id}", teamHandler.DeleteTeam).Methods("DELETE")
+
+	router.HandleFunc("/api/teams/{id}/kits", teamKitHandler.GetTeamKits).Methods("GET")
+	router.HandleFunc("/api/teams/{id}/kits", teamKitHandler.UpdateTeamKits).Methods("PUT")
 
 	// API - Logos
 	router.HandleFunc("/api/logos", logoHandler.ListLogos).Methods("GET")

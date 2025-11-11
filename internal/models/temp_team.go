@@ -12,16 +12,17 @@ import (
 
 // TempTeam - tymczasowa drużyna ze scrapowanych danych
 type TempTeam struct {
-	TempID      string  `json:"temp_id"`       // Unikalny ID tymczasowe (UUID)
-	Name        string  `json:"name"`          // Pełna nazwa (wymagana)
-	ShortName   *string `json:"short_name"`    // Skrót 3-znakowy (opcjonalny)
-	Name16      *string `json:"name_16"`       // Nazwa 16-znakowa (opcjonalny)
-	Logo        *string `json:"logo"`          // URL/ścieżka do logo (opcjonalny)
-	Link        *string `json:"link"`          // Link źródłowy (opcjonalny)
-	ForeignID   *string `json:"foreign_id"`    // ID zewnętrzne
-	Source      string  `json:"source"`        // Źródło danych (np. "mzpn_scraper")
-	ScrapedAt   string  `json:"scraped_at"`    // Data scrapowania
-	Notes       string  `json:"notes"`         // Dodatkowe notatki
+	TempID    string              `json:"temp_id"`    // Unikalny ID tymczasowe (UUID)
+	Name      string              `json:"name"`       // Pełna nazwa (wymagana)
+	ShortName *string             `json:"short_name"` // Skrót 3-znakowy (opcjonalny)
+	Name16    *string             `json:"name_16"`    // Nazwa 16-znakowa (opcjonalny)
+	Logo      *string             `json:"logo"`       // URL/ścieżka do logo (opcjonalny)
+	Link      *string             `json:"link"`       // Link źródłowy (opcjonalny)
+	ForeignID *string             `json:"foreign_id"` // ID zewnętrzne
+	Source    string              `json:"source"`     // Źródło danych (np. "mzpn_scraper")
+	ScrapedAt string              `json:"scraped_at"` // Data scrapowania
+	Notes     string              `json:"notes"`      // Dodatkowe notatki
+	Kits      map[string][]string `json:"kits"`       // Stroje: {"1": [], "2": [], "3": []}
 }
 
 // TempTeamsCollection - kolekcja tymczasowych drużyn
@@ -40,7 +41,7 @@ type TempTeamManager struct {
 func NewTempTeamManager(competitionID string) *TempTeamManager {
 	basePath := filepath.Join("./competitions", competitionID, "tmp")
 	os.MkdirAll(basePath, 0755)
-	
+
 	return &TempTeamManager{
 		competitionID: competitionID,
 		filePath:      filepath.Join(basePath, "teams.json"),
@@ -51,23 +52,23 @@ func NewTempTeamManager(competitionID string) *TempTeamManager {
 func (m *TempTeamManager) Load() (*TempTeamsCollection, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	// Sprawdź czy plik istnieje
 	if _, err := os.Stat(m.filePath); os.IsNotExist(err) {
 		// Zwróć pustą kolekcję
 		return &TempTeamsCollection{Teams: []TempTeam{}}, nil
 	}
-	
-	data, err := ioutil.ReadFile(m.filePath)
+
+	data, err := os.ReadFile(m.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("błąd odczytu pliku: %w", err)
 	}
-	
+
 	var collection TempTeamsCollection
 	if err := json.Unmarshal(data, &collection); err != nil {
 		return nil, fmt.Errorf("błąd parsowania JSON: %w", err)
 	}
-	
+
 	return &collection, nil
 }
 
@@ -75,16 +76,16 @@ func (m *TempTeamManager) Load() (*TempTeamsCollection, error) {
 func (m *TempTeamManager) Save(collection *TempTeamsCollection) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	data, err := json.MarshalIndent(collection, "", "  ")
 	if err != nil {
 		return fmt.Errorf("błąd serializacji JSON: %w", err)
 	}
-	
+
 	if err := ioutil.WriteFile(m.filePath, data, 0644); err != nil {
 		return fmt.Errorf("błąd zapisu pliku: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -94,19 +95,19 @@ func (m *TempTeamManager) Add(team TempTeam) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Sprawdź czy już istnieje
 	for _, t := range collection.Teams {
 		if t.TempID == team.TempID {
 			return fmt.Errorf("drużyna o ID %s już istnieje w pliku tymczasowym", team.TempID)
 		}
 	}
-	
+
 	// Ustaw czas scrapowania jeśli nie podano
 	if team.ScrapedAt == "" {
 		team.ScrapedAt = time.Now().Format(time.RFC3339)
 	}
-	
+
 	collection.Teams = append(collection.Teams, team)
 	return m.Save(collection)
 }
@@ -117,13 +118,13 @@ func (m *TempTeamManager) AddBulk(teams []TempTeam) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Mapa istniejących ID
 	existing := make(map[string]bool)
 	for _, t := range collection.Teams {
 		existing[t.TempID] = true
 	}
-	
+
 	// Dodaj tylko nowe
 	added := 0
 	for _, team := range teams {
@@ -135,11 +136,11 @@ func (m *TempTeamManager) AddBulk(teams []TempTeam) error {
 			added++
 		}
 	}
-	
+
 	if added > 0 {
 		return m.Save(collection)
 	}
-	
+
 	return nil
 }
 
@@ -149,13 +150,13 @@ func (m *TempTeamManager) Get(tempID string) (*TempTeam, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, team := range collection.Teams {
 		if team.TempID == tempID {
 			return &team, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("nie znaleziono drużyny o ID: %s", tempID)
 }
 
@@ -165,22 +166,22 @@ func (m *TempTeamManager) Update(tempID string, updated TempTeam) error {
 	if err != nil {
 		return err
 	}
-	
+
 	found := false
 	for i, team := range collection.Teams {
 		if team.TempID == tempID {
-			updated.TempID = tempID // Zachowaj oryginalne ID
+			updated.TempID = tempID            // Zachowaj oryginalne ID
 			updated.ScrapedAt = team.ScrapedAt // Zachowaj czas scrapowania
 			collection.Teams[i] = updated
 			found = true
 			break
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("nie znaleziono drużyny o ID: %s", tempID)
 	}
-	
+
 	return m.Save(collection)
 }
 
@@ -190,10 +191,10 @@ func (m *TempTeamManager) Delete(tempID string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	newTeams := []TempTeam{}
 	found := false
-	
+
 	for _, team := range collection.Teams {
 		if team.TempID != tempID {
 			newTeams = append(newTeams, team)
@@ -201,11 +202,11 @@ func (m *TempTeamManager) Delete(tempID string) error {
 			found = true
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("nie znaleziono drużyny o ID: %s", tempID)
 	}
-	
+
 	collection.Teams = newTeams
 	return m.Save(collection)
 }
@@ -236,7 +237,7 @@ func (t *TempTeam) IsComplete() bool {
 // GetMissingFields - zwraca listę brakujących pól
 func (t *TempTeam) GetMissingFields() []string {
 	missing := []string{}
-	
+
 	if t.Name == "" {
 		missing = append(missing, "name")
 	}
@@ -249,7 +250,7 @@ func (t *TempTeam) GetMissingFields() []string {
 	if t.Logo == nil || *t.Logo == "" {
 		missing = append(missing, "logo")
 	}
-	
+
 	return missing
 }
 
@@ -258,7 +259,7 @@ func (t *TempTeam) ToTeam() (*Team, error) {
 	if !t.IsComplete() {
 		return nil, fmt.Errorf("drużyna niekompletna, brakujące pola: %v", t.GetMissingFields())
 	}
-	
+
 	team := &Team{
 		Name:      t.Name,
 		ShortName: *t.ShortName,
@@ -267,6 +268,6 @@ func (t *TempTeam) ToTeam() (*Team, error) {
 		Link:      t.Link,      // nullable - przekazujemy jako wskaźnik
 		ForeignID: t.ForeignID, // nullable
 	}
-	
+
 	return team, nil
 }

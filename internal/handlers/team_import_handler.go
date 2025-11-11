@@ -73,20 +73,57 @@ func (h *TeamImportHandler) UpdateTempTeam(w http.ResponseWriter, r *http.Reques
 
 	var updated models.TempTeam
 	if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
-		http.Error(w, "Błąd dekodowania JSON", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "Błąd dekodowania JSON: " + err.Error(),
+		})
 		return
 	}
 
 	competitionID := h.dbManager.GetCurrentDatabaseName()
+
+	// Sprawdź czy drużyna jest kompletna
+	if updated.IsComplete() {
+		// Drużyna kompletna - importuj do bazy
+		team, err := h.importService.ImportTeam(competitionID, tempID)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "error",
+				"error":  "Błąd importu: " + err.Error(),
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   "success",
+			"message":  "Drużyna zaimportowana do bazy danych",
+			"team":     team,
+			"imported": true,
+		})
+		return
+	}
+
+	// Drużyna niekompletna - zapisz w pliku tymczasowym
 	if err := h.importService.UpdateTempTeam(competitionID, tempID, updated); err != nil {
-		http.Error(w, "Błąd aktualizacji", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  "Błąd aktualizacji: " + err.Error(),
+		})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Drużyna zaktualizowana",
+		"status":   "success",
+		"message":  "Drużyna zaktualizowana w pliku tymczasowym",
+		"imported": false,
 	})
 }
 

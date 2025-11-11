@@ -2,27 +2,61 @@ package models
 
 import (
 	"time"
+
 	"gorm.io/gorm"
 )
 
 // Team - drużyna
 type Team struct {
 	ID        uint    `gorm:"primaryKey" json:"id"`
-	Link      *string `json:"link"` // nullable
+	Link      *string `json:"link"`       // nullable
 	ForeignID *string `json:"foreign_id"` // nullable
 	Name      string  `gorm:"not null;unique" json:"name"`
 	ShortName string  `gorm:"size:3;not null;unique" json:"short_name"` // NOT NULL + UNIQUE
 	Name16    string  `gorm:"size:16;not null;unique" json:"name_16"`   // NOT NULL + UNIQUE
 	Logo      string  `json:"logo"`
-	
+
 	// Relacje
 	Players []Player `gorm:"foreignKey:TeamID" json:"players,omitempty"`
 	Coaches []Coach  `gorm:"foreignKey:TeamID" json:"coaches,omitempty"`
 	Kits    []Kit    `gorm:"foreignKey:TeamID" json:"kits,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// AfterCreate - tworzy 3 domyślne komplety strojów po utworzeniu drużyny
+func (t *Team) AfterCreate(tx *gorm.DB) error {
+	defaultColors := map[int]string{
+		1: "#ffffff", // Komplet 1 - biały
+		2: "#000000", // Komplet 2 - czarny
+		3: "#66ff73", // Komplet 3 - zielony
+	}
+
+	for kitType := 1; kitType <= 3; kitType++ {
+		kit := Kit{
+			TeamID: t.ID,
+			Type:   kitType,
+		}
+
+		if err := tx.Create(&kit).Error; err != nil {
+			return err
+		}
+
+		// Dodaj domyślny kolor dla każdego kompletu
+		kitColor := KitColor{
+			KitID:      kit.ID,
+			ColorOrder: 1,
+			Color:      defaultColors[kitType],
+		}
+
+		if err := tx.Create(&kitColor).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // PlayerRole - pozycja zawodnika
@@ -30,10 +64,10 @@ type PlayerRole struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"not null" json:"name"`
 	ShortName string `json:"short_name"`
-	
+
 	// Relacje
 	Players []Player `gorm:"foreignKey:PlayerRoleID" json:"players,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -51,11 +85,11 @@ type Player struct {
 	TeamID       uint    `json:"team_id"`
 	IsCaptain    bool    `gorm:"default:false" json:"is_captain"`
 	IsYoung      bool    `gorm:"default:false" json:"is_young"`
-	
+
 	// Relacje
 	PlayerRole PlayerRole `gorm:"foreignKey:PlayerRoleID" json:"player_role,omitempty"`
 	Team       Team       `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -66,10 +100,10 @@ type CoachRole struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"not null" json:"name"`
 	ShortName string `json:"short_name"`
-	
+
 	// Relacje
 	Coaches []Coach `gorm:"foreignKey:CoachRoleID" json:"coaches,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -82,11 +116,11 @@ type Coach struct {
 	LastName    string `gorm:"not null" json:"last_name"`
 	CoachRoleID uint   `json:"coach_role_id"`
 	TeamID      uint   `json:"team_id"`
-	
+
 	// Relacje
 	CoachRole CoachRole `gorm:"foreignKey:CoachRoleID" json:"coach_role,omitempty"`
 	Team      Team      `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -97,7 +131,7 @@ type RefereeRole struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"not null" json:"name"`
 	ShortName string `json:"short_name"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -108,7 +142,7 @@ type Referee struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	FirstName string `gorm:"not null" json:"first_name"`
 	LastName  string `gorm:"not null" json:"last_name"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -120,10 +154,10 @@ type Field struct {
 	Name   string `gorm:"not null" json:"name"`
 	City   string `json:"city"`
 	Street string `json:"street"`
-	
+
 	// Relacje
 	Games []Game `gorm:"foreignKey:FieldID" json:"games,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -133,12 +167,12 @@ type Field struct {
 type Competition struct {
 	ID       uint   `gorm:"primaryKey" json:"id"`
 	Name     string `gorm:"not null" json:"name"`
-	Season   string `json:"season"` // np. "2024/2025"
+	Season   string `json:"season"`                    // np. "2024/2025"
 	Variable string `gorm:"type:text" json:"variable"` // JSON ze zmiennymi konfiguracyjnymi rozgrywek
-	
+
 	// Relacje
 	Stages []Stage `gorm:"foreignKey:CompetitionID" json:"stages,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -149,14 +183,14 @@ type Stage struct {
 	ID            uint   `gorm:"primaryKey" json:"id"`
 	CompetitionID uint   `json:"competition_id"`
 	Name          string `gorm:"not null" json:"name"` // np. "Grupa A", "1/8 finału", "Kolejka 5"
-	StageOrder    int    `json:"stage_order"` // kolejność etapu
-	ParentStageID *uint  `json:"parent_stage_id"` // nullable - etap z którego awansowano
-	
+	StageOrder    int    `json:"stage_order"`          // kolejność etapu
+	ParentStageID *uint  `json:"parent_stage_id"`      // nullable - etap z którego awansowano
+
 	// Relacje
 	Competition Competition `gorm:"foreignKey:CompetitionID" json:"competition,omitempty"`
 	ParentStage *Stage      `gorm:"foreignKey:ParentStageID" json:"parent_stage,omitempty"`
 	Groups      []Group     `gorm:"foreignKey:StageID" json:"groups,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -167,12 +201,12 @@ type Group struct {
 	ID      uint   `gorm:"primaryKey" json:"id"`
 	StageID uint   `json:"stage_id"`
 	Name    string `json:"name"` // np. "Grupa A", "Para 1", "Tabela ligowa"
-	
+
 	// Relacje
 	Stage      Stage       `gorm:"foreignKey:StageID" json:"stage,omitempty"`
 	GroupTeams []GroupTeam `gorm:"foreignKey:GroupID" json:"group_teams,omitempty"`
 	Games      []Game      `gorm:"foreignKey:GroupID" json:"games,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -183,11 +217,11 @@ type GroupTeam struct {
 	ID      uint `gorm:"primaryKey" json:"id"`
 	GroupID uint `json:"group_id"`
 	TeamID  uint `json:"team_id"`
-	
+
 	// Relacje
 	Group Group `gorm:"foreignKey:GroupID" json:"group,omitempty"`
 	Team  Team  `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -197,17 +231,17 @@ type GroupTeam struct {
 type Game struct {
 	ID         uint    `gorm:"primaryKey" json:"id"`
 	ForeignID  *string `json:"foreign_id"` // nullable - ID z zewnętrznego systemu
-	GroupID    uint    `json:"group_id"` // grupa do której należy mecz (wymagane)
+	GroupID    uint    `json:"group_id"`   // grupa do której należy mecz (wymagane)
 	FieldID    uint    `json:"field_id"`
-	DateTime   string  `json:"date_time"` // Format: "2025-10-17_20:45"
+	DateTime   string  `json:"date_time"`              // Format: "2025-10-17_20:45"
 	Round      int     `gorm:"default:1" json:"round"` // Runda/kolejka
-	IsFinished *bool   `json:"is_finished"` // nil = nie rozpoczęty, false = trwa, true = zakończony
-	
+	IsFinished *bool   `json:"is_finished"`            // nil = nie rozpoczęty, false = trwa, true = zakończony
+
 	// Relacje
 	Group     Group      `gorm:"foreignKey:GroupID" json:"group,omitempty"`
 	Field     Field      `gorm:"foreignKey:FieldID" json:"field,omitempty"`
 	GameParts []GamePart `gorm:"foreignKey:GameID" json:"game_parts,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -215,19 +249,19 @@ type Game struct {
 
 // GamePart - część meczu (kwarta, połowa, etc.)
 type GamePart struct {
-	ID                 uint    `gorm:"primaryKey" json:"id"`
-	GameID             uint    `json:"game_id"`
-	Name               string  `gorm:"not null" json:"name"`
-	Length             *int    `json:"length"`     // nullable - czas w sekundach
-	MatchOrder         int     `gorm:"not null" json:"match_order"`
-	TimeGroup          *uint   `json:"time_group"`  // nullable - grupa do sumowania czasów
-	ActualTime         int     `gorm:"default:0" json:"actual_time"` // ostatnio zapisany czas w sekundach
-	IsAddedTimeAllowed bool    `gorm:"default:false" json:"is_added_time_allowed"` // czy dozwolony czas dodatkowy
-	AddedTime          *int    `json:"added_time"` // nullable - czas dodatkowy w sekundach
-	
+	ID                 uint   `gorm:"primaryKey" json:"id"`
+	GameID             uint   `json:"game_id"`
+	Name               string `gorm:"not null" json:"name"`
+	Length             *int   `json:"length"` // nullable - czas w sekundach
+	MatchOrder         int    `gorm:"not null" json:"match_order"`
+	TimeGroup          *uint  `json:"time_group"`                                 // nullable - grupa do sumowania czasów
+	ActualTime         int    `gorm:"default:0" json:"actual_time"`               // ostatnio zapisany czas w sekundach
+	IsAddedTimeAllowed bool   `gorm:"default:false" json:"is_added_time_allowed"` // czy dozwolony czas dodatkowy
+	AddedTime          *int   `json:"added_time"`                                 // nullable - czas dodatkowy w sekundach
+
 	// Relacje
 	Game Game `gorm:"foreignKey:GameID" json:"game,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -238,10 +272,10 @@ type TVStaffRole struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"not null" json:"name"`
 	ShortName string `json:"short_name"`
-	
+
 	// Relacje
 	TVStaff []TVStaff `gorm:"foreignKey:TVStaffRoleID" json:"tv_staff,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -253,10 +287,10 @@ type TVStaff struct {
 	FirstName     string `gorm:"not null" json:"first_name"`
 	LastName      string `gorm:"not null" json:"last_name"`
 	TVStaffRoleID uint   `json:"tv_staff_role_id"`
-	
+
 	// Relacje
 	TVStaffRole TVStaffRole `gorm:"foreignKey:TVStaffRoleID" json:"tv_staff_role,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -266,7 +300,7 @@ type TVStaff struct {
 type ValueType struct {
 	ID   uint   `gorm:"primaryKey" json:"id"`
 	Name string `gorm:"not null" json:"name"` // np: "Bramki"
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -277,11 +311,11 @@ type Camera struct {
 	ID       uint   `gorm:"primaryKey" json:"id"`
 	Name     string `gorm:"not null" json:"name"`
 	Location string `json:"location"`
-	
+
 	// Relacje
 	Events  []Event  `gorm:"foreignKey:CameraID" json:"events,omitempty"`
 	Replays []Replay `gorm:"foreignKey:CameraID" json:"replays,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -294,10 +328,10 @@ type EventType struct {
 	Icon         *string `json:"icon"` // nullable - URL do ikonki
 	ShortName    string  `json:"short_name"`
 	IsInProtocol bool    `gorm:"default:false" json:"is_in_protocol"`
-	
+
 	// Relacje
 	Events []Event `gorm:"foreignKey:EventTypeID" json:"events,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -314,7 +348,7 @@ type Event struct {
 	CameraID    uint   `json:"camera_id"`
 	TeamID      *uint  `json:"team_id"`   // nullable
 	PlayerID    *uint  `json:"player_id"` // nullable
-	
+
 	// Relacje
 	EventType EventType `gorm:"foreignKey:EventTypeID" json:"event_type,omitempty"`
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
@@ -322,7 +356,7 @@ type Event struct {
 	Camera    Camera    `gorm:"foreignKey:CameraID" json:"camera,omitempty"`
 	Team      *Team     `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	Player    *Player   `gorm:"foreignKey:PlayerID" json:"player,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -338,13 +372,13 @@ type Replay struct {
 	CameraID   uint   `json:"camera_id"`
 	StartTime  int    `json:"start_time"` // czas w sekundach
 	EndTime    int    `json:"end_time"`   // czas w sekundach
-	
+
 	// Relacje
 	Game     Game     `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	GamePart GamePart `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
 	Event    Event    `gorm:"foreignKey:EventID" json:"event,omitempty"`
 	Camera   Camera   `gorm:"foreignKey:CameraID" json:"camera,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -359,46 +393,44 @@ type Substitution struct {
 	TeamID            uint `json:"team_id"`
 	PlayerInID        uint `json:"player_in_id"`
 	PlayerOutID       uint `json:"player_out_id"`
-	Time              int  `json:"time"`                          // czas w sekundach
+	Time              int  `json:"time"` // czas w sekundach
 	IsDone            bool `gorm:"default:false" json:"is_done"`
-	
+
 	// Relacje
 	Game      Game     `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	GamePart  GamePart `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
 	Team      Team     `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	PlayerIn  Player   `gorm:"foreignKey:PlayerInID" json:"player_in,omitempty"`
 	PlayerOut Player   `gorm:"foreignKey:PlayerOutID" json:"player_out,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Kit - strój drużyny
+// Kit - komplet stroju (zawsze 3 komplety na drużynę: 1, 2, 3)
 type Kit struct {
-	ID     uint `gorm:"primaryKey" json:"id"`
-	TeamID uint `json:"team_id"`
-	Type   int  `gorm:"not null" json:"type"` // 1=home, 2=away, 3=extra
-	
-	// Relacje
-	Team      Team       `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	KitColors []KitColor `gorm:"foreignKey:KitID" json:"kit_colors,omitempty"`
-	
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	TeamID    uint           `gorm:"not null;index" json:"team_id"`
+	Type      int            `gorm:"not null;check:type IN (1,2,3)" json:"type"` // 1, 2 lub 3
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// Relacje
+	Team      Team       `gorm:"foreignKey:TeamID" json:"-"`
+	KitColors []KitColor `gorm:"foreignKey:KitID;constraint:OnDelete:CASCADE" json:"kit_colors,omitempty"`
 }
 
 // KitColor - kolor stroju
 type KitColor struct {
-	ID         uint   `gorm:"primaryKey" json:"id"`
-	KitID      uint   `json:"kit_id"`
-	Color      string `gorm:"not null" json:"color"` // format HEX np. "#FF0000"
-	ColorOrder int    `gorm:"not null" json:"color_order"` // kolejność koloru
-	
+	KitID      uint   `gorm:"primaryKey" json:"kit_id"`
+	ColorOrder int    `gorm:"primaryKey" json:"color_order"` // kolejność koloru (1-5)
+	Color      string `gorm:"not null" json:"color"`         // format HEX np. "#FF0000"
+
 	// Relacje
 	Kit Kit `gorm:"foreignKey:KitID" json:"kit,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -406,23 +438,23 @@ type KitColor struct {
 
 // GamePartValue - wartość statystyki dla drużyny w części meczu
 type GamePartValue struct {
-	ID             uint  `gorm:"primaryKey" json:"id"`
-	GameID         uint  `json:"game_id"`
-	GamePartID     uint  `json:"game_part_id"`
-	TeamID         uint  `json:"team_id"`
-	ValueTypeID    uint  `json:"value_type_id"`
-	Value          int   `json:"value"`           // wartość statystyki
-	GameValueGroup *int  `json:"game_value_group"` // nullable, grupa wartości
-	MinValue       *int  `json:"min_value"`       // nullable - minimalna dopuszczalna wartość
-	MaxValue       *int  `json:"max_value"`       // nullable - maksymalna dopuszczalna wartość
-	IsDSQ          bool  `gorm:"default:false" json:"is_dsq"` // czy drużyna została zdyskwalifikowana
-	
+	ID             uint `gorm:"primaryKey" json:"id"`
+	GameID         uint `json:"game_id"`
+	GamePartID     uint `json:"game_part_id"`
+	TeamID         uint `json:"team_id"`
+	ValueTypeID    uint `json:"value_type_id"`
+	Value          int  `json:"value"`                       // wartość statystyki
+	GameValueGroup *int `json:"game_value_group"`            // nullable, grupa wartości
+	MinValue       *int `json:"min_value"`                   // nullable - minimalna dopuszczalna wartość
+	MaxValue       *int `json:"max_value"`                   // nullable - maksymalna dopuszczalna wartość
+	IsDSQ          bool `gorm:"default:false" json:"is_dsq"` // czy drużyna została zdyskwalifikowana
+
 	// Relacje
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	GamePart  GamePart  `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
 	Team      Team      `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	ValueType ValueType `gorm:"foreignKey:ValueTypeID" json:"value_type,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -434,14 +466,14 @@ type GameValue struct {
 	GameID      uint `json:"game_id"`
 	TeamID      uint `json:"team_id"`
 	ValueTypeID uint `json:"value_type_id"`
-	Value       int  `json:"value"` // aktualna obliczona wartość
+	Value       int  `json:"value"`                       // aktualna obliczona wartość
 	IsDSQ       bool `gorm:"default:false" json:"is_dsq"` // czy drużyna została zdyskwalifikowana
-	
+
 	// Relacje
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	Team      Team      `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	ValueType ValueType `gorm:"foreignKey:ValueTypeID" json:"value_type,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -453,15 +485,15 @@ type GamePlayer struct {
 	GameID       uint   `json:"game_id"`
 	TeamID       uint   `json:"team_id"`
 	PlayerID     uint   `json:"player_id"`
-	Number       string `json:"number"` // numer zawodnika w tym meczu
+	Number       string `json:"number"`         // numer zawodnika w tym meczu
 	PlayerRoleID uint   `json:"player_role_id"` // rola/pozycja zawodnika w meczu
-	
+
 	// Relacje
 	Game       Game       `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	Team       Team       `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	Player     Player     `gorm:"foreignKey:PlayerID" json:"player,omitempty"`
 	PlayerRole PlayerRole `gorm:"foreignKey:PlayerRoleID" json:"player_role,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -474,13 +506,13 @@ type GameCoach struct {
 	TeamID      uint `json:"team_id"`
 	CoachID     uint `json:"coach_id"`
 	CoachRoleID uint `json:"coach_role_id"` // rola trenera w meczu
-	
+
 	// Relacje
 	Game      Game      `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	Team      Team      `gorm:"foreignKey:TeamID" json:"team,omitempty"`
 	Coach     Coach     `gorm:"foreignKey:CoachID" json:"coach,omitempty"`
 	CoachRole CoachRole `gorm:"foreignKey:CoachRoleID" json:"coach_role,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -492,12 +524,12 @@ type GameReferee struct {
 	GameID        uint `json:"game_id"`
 	RefereeID     uint `json:"referee_id"`
 	RefereeRoleID uint `json:"referee_role_id"` // rola sędziego w meczu
-	
+
 	// Relacje
 	Game        Game        `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	Referee     Referee     `gorm:"foreignKey:RefereeID" json:"referee,omitempty"`
 	RefereeRole RefereeRole `gorm:"foreignKey:RefereeRoleID" json:"referee_role,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -509,12 +541,12 @@ type GameTVStaff struct {
 	GameID        uint `json:"game_id"`
 	TVStaffID     uint `json:"tv_staff_id"`
 	TVStaffRoleID uint `json:"tv_staff_role_id"` // rola w ekipie realizatorskiej w meczu
-	
+
 	// Relacje
 	Game        Game        `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	TVStaff     TVStaff     `gorm:"foreignKey:TVStaffID" json:"tv_staff,omitempty"`
 	TVStaffRole TVStaffRole `gorm:"foreignKey:TVStaffRoleID" json:"tv_staff_role,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -526,11 +558,11 @@ type GameTeam struct {
 	GameID uint `json:"game_id"`
 	TeamID uint `json:"team_id"`
 	Side   int  `gorm:"not null" json:"side"` // 1=gospodarze, 2=goście
-	
+
 	// Relacje
 	Game Game `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	Team Team `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -541,11 +573,11 @@ type GameCamera struct {
 	GameID   uint `gorm:"primaryKey" json:"game_id"`
 	CameraID uint `gorm:"primaryKey" json:"camera_id"`
 	IsUsed   bool `gorm:"default:false" json:"is_used"` // czy kamera jest używana w tym meczu
-	
+
 	// Relacje
 	Game   Game   `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	Camera Camera `gorm:"foreignKey:CameraID" json:"camera,omitempty"`
-	
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -556,11 +588,11 @@ type ActiveSession struct {
 	ID         uint  `gorm:"primaryKey" json:"id"`
 	GameID     *uint `json:"game_id"`      // nullable - aktywny mecz
 	GamePartID *uint `json:"game_part_id"` // nullable - aktywna część meczu
-	
+
 	// Relacje
 	Game     *Game     `gorm:"foreignKey:GameID" json:"game,omitempty"`
 	GamePart *GamePart `gorm:"foreignKey:GamePartID" json:"game_part,omitempty"`
-	
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
