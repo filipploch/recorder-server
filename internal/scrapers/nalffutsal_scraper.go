@@ -2,7 +2,7 @@ package scrapers
 
 import (
 	"context"
-//	"encoding/json"
+	//	"encoding/json"
 	"fmt"
 	"log"
 	"recorder-server/internal/models"
@@ -77,16 +77,16 @@ func (s *NalffutsalTeamScraper) ScrapeTeams(competitionID string, teamsURL strin
 		return nil, fmt.Errorf("błąd parsowania drużyn: %w", err)
 	}
 
-	log.Printf("NalffutsalScraper: Znaleziono %d nowych drużyn (pominiętych duplikatów: %d)", 
-		len(teams), 
+	log.Printf("NalffutsalScraper: Znaleziono %d nowych drużyn (pominiętych duplikatów: %d)",
+		len(teams),
 		(len(existingForeignIDs) + len(existingTempForeignIDs)))
 	return teams, nil
 }
 
 // parseTeamsWithChromedp - parsuje drużyny używając chromedp do ekstrakcji danych
-func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, teamsURL string, 
+func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, teamsURL string,
 	existingForeignIDs map[string]bool, existingTempForeignIDs map[string]bool) ([]models.TempTeam, error) {
-	
+
 	var teams []models.TempTeam
 
 	// Pobierz liczbę wierszy w tbody
@@ -103,7 +103,7 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 	// Iteruj przez każdy wiersz
 	for i := 0; i < rowCount; i++ {
 		var teamData map[string]interface{}
-		
+
 		jsCode := fmt.Sprintf(`
 			(function() {
 				const row = document.querySelectorAll('table tbody tr')[%d];
@@ -115,7 +115,6 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 				const link = nameCell.querySelector('a');
 				if (!link) return null;
 				
-				const img = nameCell.querySelector('img');
 				const teamName = link.textContent.trim();
 				
 				const href = link.getAttribute('href');
@@ -130,7 +129,6 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 				return {
 					name: teamName,
 					link: href || '',
-					logo: img ? img.getAttribute('src') : '',
 					foreign_id: foreignId
 				};
 			})()
@@ -152,7 +150,6 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 
 		name, _ := teamData["name"].(string)
 		link, _ := teamData["link"].(string)
-		logo, _ := teamData["logo"].(string)
 		foreignID, _ := teamData["foreign_id"].(string)
 
 		if strings.TrimSpace(name) == "" {
@@ -163,32 +160,32 @@ func (s *NalffutsalTeamScraper) parseTeamsWithChromedp(ctx context.Context, team
 		// Pomiń jeśli już istnieje w bazie lub w pliku tymczasowym
 		if foreignID != "" {
 			if existingForeignIDs[foreignID] {
-				log.Printf("NalffutsalScraper: Drużyna %s (foreign_id: %s) już istnieje w bazie, pomijam", 
+				log.Printf("NalffutsalScraper: Drużyna %s (foreign_id: %s) już istnieje w bazie, pomijam",
 					name, foreignID)
 				continue
 			}
 			if existingTempForeignIDs[foreignID] {
-				log.Printf("NalffutsalScraper: Drużyna %s (foreign_id: %s) już istnieje w pliku tymczasowym, pomijam", 
+				log.Printf("NalffutsalScraper: Drużyna %s (foreign_id: %s) już istnieje w pliku tymczasowym, pomijam",
 					name, foreignID)
 				continue
 			}
 		}
 
 		tempTeam := models.TempTeam{
-			TempID:     uuid.New().String(),
-			Name:       strings.TrimSpace(name),
-			ShortName:  nil,
-			Name16:     nil,
-			Logo:       stringPtr(logo),
-			Link:       stringPtr(link),
-			ForeignID:  stringPtr(foreignID),
-			Source:     "nalffutsal_scraper",
-			ScrapedAt:  time.Now().Format(time.RFC3339),
-			Notes:      "Zescrapowano automatycznie z nalffutsal.pl",
+			TempID:    uuid.New().String(),
+			Name:      strings.TrimSpace(name),
+			ShortName: nil,
+			Name16:    nil,
+			Logo:      nil, // ZMIENIONE - ustaw na nil zamiast pobierać z img
+			Link:      stringPtr(link),
+			ForeignID: stringPtr(foreignID),
+			Source:    "nalffutsal_scraper",
+			ScrapedAt: time.Now().Format(time.RFC3339),
+			Notes:     "Zescrapowano automatycznie z nalffutsal.pl",
 		}
 
 		teams = append(teams, tempTeam)
-		log.Printf("NalffutsalScraper: [%d/%d] Dodano: %s (foreign_id: %s)", 
+		log.Printf("NalffutsalScraper: [%d/%d] Dodano: %s (foreign_id: %s)",
 			len(teams), rowCount, name, foreignID)
 	}
 
@@ -206,12 +203,12 @@ func stringPtr(s string) *string {
 // SaveTeamsToJSON - zapisuje drużyny do pliku JSON w katalogu tymczasowym
 func (s *NalffutsalTeamScraper) SaveTeamsToJSON(competitionID string, teams []models.TempTeam) error {
 	manager := models.NewTempTeamManager(competitionID)
-	
+
 	// Dodaj wszystkie drużyny masowo
 	if err := manager.AddBulk(teams); err != nil {
 		return fmt.Errorf("błąd zapisu drużyn do pliku: %w", err)
 	}
-	
+
 	log.Printf("NalffutsalScraper: Zapisano %d drużyn do pliku tymczasowego", len(teams))
 	return nil
 }
@@ -231,7 +228,7 @@ func (s *NalffutsalTeamScraper) ClassifyTeams(teams []models.TempTeam) (complete
 // PrintSummary - wyświetla podsumowanie scrapowania
 func (s *NalffutsalTeamScraper) PrintSummary(teams []models.TempTeam) {
 	complete, incomplete := s.ClassifyTeams(teams)
-	
+
 	log.Printf("========================================")
 	log.Printf("PODSUMOWANIE SCRAPOWANIA")
 	log.Printf("========================================")
@@ -239,7 +236,7 @@ func (s *NalffutsalTeamScraper) PrintSummary(teams []models.TempTeam) {
 	log.Printf("Kompletne (gotowe):      %d", len(complete))
 	log.Printf("Niekompletne (wymagają edycji): %d", len(incomplete))
 	log.Printf("========================================")
-	
+
 	if len(incomplete) > 0 {
 		log.Printf("Niekompletne drużyny wymagają uzupełnienia:")
 		for _, team := range incomplete {

@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"recorder-server/internal/database"
-	"recorder-server/internal/services"
 	"recorder-server/internal/models"
-//	"strconv"
+	"recorder-server/internal/services"
 
 	"github.com/gorilla/mux"
 )
@@ -29,8 +28,8 @@ func NewTeamImportHandler(dbManager *database.Manager) *TeamImportHandler {
 // GET /api/teams/temp
 func (h *TeamImportHandler) GetTempTeams(w http.ResponseWriter, r *http.Request) {
 	competitionID := h.dbManager.GetCurrentDatabaseName()
-	
-	teams, err := h.importService.GetTempTeams(competitionID)
+
+	collection, err := h.importService.GetTempTeams(competitionID)
 	if err != nil {
 		http.Error(w, "Błąd pobierania tymczasowych drużyn", http.StatusInternalServerError)
 		return
@@ -41,7 +40,7 @@ func (h *TeamImportHandler) GetTempTeams(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":     "success",
-		"teams":      teams.Teams,
+		"teams":      collection.Teams, // ZMIENIONE - zwróć collection.Teams zamiast collection
 		"statistics": stats,
 	})
 }
@@ -51,7 +50,7 @@ func (h *TeamImportHandler) GetTempTeams(w http.ResponseWriter, r *http.Request)
 func (h *TeamImportHandler) GetTempTeam(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	tempID := vars["temp_id"]
-	
+
 	competitionID := h.dbManager.GetCurrentDatabaseName()
 	team, err := h.importService.GetTempTeam(competitionID, tempID)
 	if err != nil {
@@ -100,7 +99,11 @@ func (h *TeamImportHandler) ImportTeam(w http.ResponseWriter, r *http.Request) {
 	competitionID := h.dbManager.GetCurrentDatabaseName()
 	team, err := h.importService.ImportTeam(competitionID, tempID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "error",
+			"error":  err.Error(),
+		})
 		return
 	}
 

@@ -729,27 +729,39 @@
             fetch('/api/teams/temp')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Temp teams response:', data); // DODANE - debug
                     document.getElementById('tempLoading').style.display = 'none';
                     
-                    if (data.status === 'success' && data.teams && data.teams.length > 0) {
-                        document.getElementById('tempTeamsSection').style.display = 'block';
-                        renderTempTeams(data.teams);
-                        renderTempStats(data.statistics);
+                    if (data.status === 'success') {
+                        console.log('Teams array:', data.teams); // DODANE - debug
+                        console.log('Teams length:', data.teams ? data.teams.length : 0); // DODANE - debug
                         
-                        // Show import all button if there are complete teams
-                        if (data.statistics.complete > 0) {
-                            document.getElementById('importAllBtn').style.display = 'inline-block';
+                        if (data.teams && data.teams.length > 0) {
+                            document.getElementById('tempTeamsSection').style.display = 'block';
+                            renderTempTeams(data.teams);
+                            renderTempStats(data.statistics);
+                            
+                            // Show import all button if there are complete teams
+                            if (data.statistics && data.statistics.complete > 0) {
+                                document.getElementById('importAllBtn').style.display = 'inline-block';
+                            } else {
+                                document.getElementById('importAllBtn').style.display = 'none';
+                            }
                         } else {
+                            console.log('No temp teams found'); // DODANE - debug
+                            document.getElementById('tempTeamsSection').style.display = 'none';
                             document.getElementById('importAllBtn').style.display = 'none';
                         }
                     } else {
+                        console.error('Error status in response:', data); // DODANE - debug
                         document.getElementById('tempTeamsSection').style.display = 'none';
                         document.getElementById('importAllBtn').style.display = 'none';
                     }
                 })
                 .catch(error => {
                     document.getElementById('tempLoading').style.display = 'none';
-                    console.error('Error:', error);
+                    console.error('Error loading temp teams:', error);
+                    showAlert('Błąd ładowania tymczasowych zespołów', 'error');
                 });
         }
 
