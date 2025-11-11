@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	// "fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -28,11 +30,11 @@ func main() {
 
 	// Inicjalizacja Database Manager
 	dbManager := database.GetManager()
-	
+
 	// Sprawdź czy istnieje konfiguracja bazy danych
 	dbConfig, err := config.LoadDatabaseConfig()
 	needsSetup := err != nil
-	
+
 	if !needsSetup {
 		// Konfiguracja istnieje - inicjalizuj normalnie
 		if err := dbManager.Initialize(); err != nil {
@@ -40,7 +42,7 @@ func main() {
 			needsSetup = true
 		} else {
 			log.Println("Database Manager zainicjalizowany")
-			
+
 			// Wykonaj migrację dla aktualnej bazy
 			log.Println("Wykonywanie migracji bazy danych...")
 			if err := dbManager.AutoMigrate(models.GetAllModels()...); err != nil {
@@ -48,7 +50,7 @@ func main() {
 			} else {
 				log.Printf("Migracja zakończona pomyślnie dla bazy: %s", dbManager.GetCurrentDatabaseName())
 			}
-			
+
 			// Wczytaj aktywną sesję
 			db := dbManager.GetDB()
 			var activeSession models.ActiveSession
@@ -64,13 +66,13 @@ func main() {
 			}
 		}
 	}
-	
+
 	defer dbManager.Close()
-	
+
 	// ===== Inicjalizacja scraperów =====
 	log.Println("Inicjalizacja scraperów...")
 	scrapers.RegisterExampleScrapers()
-	
+
 	// ===== Inicjalizacja algorytmów tabel =====
 	log.Println("Inicjalizacja algorytmów tabel...")
 	tables.RegisterDefaultAlgorithms()
@@ -92,10 +94,10 @@ func main() {
 	go obsClient.Connect()
 	setupOBSEventHandlers(obsClient)
 	log.Println("OBS WebSocket klient zainicjalizowany")
-	
+
 	// ===== Inicjalizacja serwisów =====
 	scraperService := services.NewScraperService(dbManager)
-	tableService := services.NewTableService(dbManager)
+	// tableService := services.NewTableService(dbManager)
 
 	// Inicjalizacja handlerów
 	setupHandler := handlers.NewSetupHandler(dbManager)
@@ -105,9 +107,11 @@ func main() {
 	obsHandler := handlers.NewOBSHandler(obsClient)
 	timerHandler := handlers.NewTimerHandler(timerService)
 	databaseHandler := handlers.NewDatabaseHandler(dbManager)
-	scraperHandler := handlers.NewScraperHandler(scraperService)
-	tableHandler := handlers.NewTableHandler(tableService)
+	scraperHandler := handlers.NewScraperHandler(dbManager) // Przekaż dbManager
+	// tableHandler := handlers.NewTableHandler(tableService)
 	teamHandler := handlers.NewTeamHandler(dbManager)
+	logoHandler := handlers.NewLogoHandler()
+	teamImportHandler := handlers.NewTeamImportHandler(dbManager)
 	log.Println("Handlery HTTP zainicjalizowane")
 
 	// Router
@@ -133,7 +137,7 @@ func main() {
 
 	// Strony WWW
 	router.HandleFunc("/", pageHandler.Index).Methods("GET")
-	
+
 	// Strona zarządzania zespołami
 	router.HandleFunc("/teams", func(w http.ResponseWriter, r *http.Request) {
 		tmpl := template.Must(template.ParseFiles("web/templates/teams.html"))
@@ -171,21 +175,21 @@ func main() {
 	router.HandleFunc("/api/session/set-game", sessionHandler.SetActiveGame).Methods("POST")
 	router.HandleFunc("/api/session/set-gamepart", sessionHandler.SetActiveGamePart).Methods("POST")
 	router.HandleFunc("/api/session/clear", sessionHandler.ClearActiveSession).Methods("POST")
-	
+
 	// API - Scrapers
 	router.HandleFunc("/api/scrape/teams", scraperHandler.ScrapeTeams).Methods("POST")
 	router.HandleFunc("/api/scrape/players", scraperHandler.ScrapePlayers).Methods("POST")
 	router.HandleFunc("/api/scrape/games", scraperHandler.ScrapeGames).Methods("POST")
 	router.HandleFunc("/api/scrape/available", scraperHandler.GetAvailableScrapers).Methods("GET")
 	router.HandleFunc("/api/scrape/competition/info", scraperHandler.GetCompetitionScraperInfo).Methods("GET")
-	
+
 	// API - Tables
-	router.HandleFunc("/api/tables/group", tableHandler.CalculateTableForGroup).Methods("GET")
-	router.HandleFunc("/api/tables/stage", tableHandler.CalculateTableForStage).Methods("GET")
-	router.HandleFunc("/api/tables/competition", tableHandler.CalculateTableForCompetition).Methods("GET")
-	router.HandleFunc("/api/tables/algorithms", tableHandler.GetAvailableAlgorithms).Methods("GET")
-	router.HandleFunc("/api/tables/competition/algorithm", tableHandler.GetCompetitionAlgorithmInfo).Methods("GET")
-	router.HandleFunc("/api/tables/compare", tableHandler.CompareTeams).Methods("GET")
+	// router.HandleFunc("/api/tables/group", tableHandler.CalculateTableForGroup).Methods("GET")
+	// router.HandleFunc("/api/tables/stage", tableHandler.CalculateTableForStage).Methods("GET")
+	// router.HandleFunc("/api/tables/competition", tableHandler.CalculateTableForCompetition).Methods("GET")
+	// router.HandleFunc("/api/tables/algorithms", tableHandler.GetAvailableAlgorithms).Methods("GET")
+	// router.HandleFunc("/api/tables/competition/algorithm", tableHandler.GetCompetitionAlgorithmInfo).Methods("GET")
+	// router.HandleFunc("/api/tables/compare", tableHandler.CompareTeams).Methods("GET")
 
 	// API - Teams CRUD
 	router.HandleFunc("/api/teams", teamHandler.ListTeams).Methods("GET")
@@ -193,6 +197,42 @@ func main() {
 	router.HandleFunc("/api/teams/{id}", teamHandler.GetTeam).Methods("GET")
 	router.HandleFunc("/api/teams/{id}", teamHandler.UpdateTeam).Methods("PUT")
 	router.HandleFunc("/api/teams/{id}", teamHandler.DeleteTeam).Methods("DELETE")
+
+	// API - Team Import (tymczasowe drużyny)
+	// teamImportHandler := handlers.NewTeamImportHandler(dbManager)
+	// teamImportHandler = handlers.NewTeamImportHandler(dbManager)
+	// router.HandleFunc("/api/teams/temp", teamImportHandler.GetTempTeams).Methods("GET")
+	// router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.GetTempTeam).Methods("GET")
+	// router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.UpdateTempTeam).Methods("PUT")
+	// router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.DeleteTempTeam).Methods("DELETE")
+	// router.HandleFunc("/api/teams/import/{temp_id}", teamImportHandler.ImportTeam).Methods("POST")
+	// router.HandleFunc("/api/teams/import-all", teamImportHandler.ImportAllComplete).Methods("POST")
+
+	// API - Logos
+	router.HandleFunc("/api/logos", logoHandler.ListLogos).Methods("GET")
+
+	// API - Team Import (tymczasowe drużyny)
+	router.HandleFunc("/api/teams/temp", teamImportHandler.GetTempTeams).Methods("GET")
+	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.GetTempTeam).Methods("GET")
+	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.UpdateTempTeam).Methods("PUT")
+	router.HandleFunc("/api/teams/temp/{temp_id}", teamImportHandler.DeleteTempTeam).Methods("DELETE")
+	router.HandleFunc("/api/teams/import/{temp_id}", teamImportHandler.ImportTeam).Methods("POST")
+	router.HandleFunc("/api/teams/import-all", teamImportHandler.ImportAllComplete).Methods("POST")
+
+	// API - Competition (dodaj endpoint do pobierania info o scraperze)
+	router.HandleFunc("/api/competition/current", func(w http.ResponseWriter, r *http.Request) {
+		db := dbManager.GetDB()
+		var competition models.Competition
+		if err := db.First(&competition).Error; err != nil {
+			http.Error(w, "Nie znaleziono competition", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":      "success",
+			"competition": competition,
+		})
+	}).Methods("GET")
 
 	// Start serwera
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
@@ -206,12 +246,12 @@ func main() {
 	} else {
 		log.Printf("⚠️  WYMAGANA KONFIGURACJA - przejdź do /setup")
 	}
-	
+
 	availableScrapers := scraperService.GetAvailableScrapers()
 	log.Printf("Dostępne scrapery: %v", availableScrapers)
-	availableAlgorithms := tableService.GetAvailableAlgorithms()
-	log.Printf("Dostępne algorytmy tabel: %v", availableAlgorithms)
-	
+	// availableAlgorithms := tableService.GetAvailableAlgorithms()
+	// log.Printf("Dostępne algorytmy tabel: %v", availableAlgorithms)
+
 	log.Printf("=================================")
 
 	if err := http.ListenAndServe(addr, router); err != nil {

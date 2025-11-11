@@ -3,6 +3,7 @@ package scrapers
 import (
 	"errors"
 	"recorder-server/internal/models"
+	"gorm.io/gorm"
 )
 
 // Scraper - interfejs dla wszystkich scraperów
@@ -14,6 +15,12 @@ type Scraper interface {
 type TeamScraper interface {
 	Scraper
 	ScrapeTeams(competitionID string) ([]models.Team, error)
+}
+
+// TeamScraperWithDB - rozszerzony interfejs z dostępem do bazy danych
+type TeamScraperWithDB interface {
+	Scraper
+	ScrapeTeamsWithDB(competitionID string, teamsURL string, db *gorm.DB) ([]models.TempTeam, error)
 }
 
 // PlayerScraper - interfejs dla scraperów pobierających zawodników

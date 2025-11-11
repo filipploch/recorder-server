@@ -1,6 +1,12 @@
 /competitions
 database_config.json
 presets.json
+.vs/
+.vscode/
 
 # Ignoruj pliki tymczasowe w każdym katalogu tmp
 **/tmp/
+
+# Zachowaj strukturę katalogów logos, ale ignoruj pliki
+web/static/images/logos/*
+!web/static/images/logos/.gitkeep

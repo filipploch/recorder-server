@@ -345,6 +345,6 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Przekieruj na stronę główną
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// Przekieruj na stronę zespołów zamiast głównej
+	http.Redirect(w, r, "/teams", http.StatusSeeOther)
 }

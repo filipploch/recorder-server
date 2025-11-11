@@ -3,10 +3,10 @@ package scrapers
 import (
 	"fmt"
 	"recorder-server/internal/models"
+	"gorm.io/gorm"
 )
 
 // ExampleScraper - przykładowa implementacja scrapera (placeholder)
-// W przyszłości tutaj będą prawdziwe implementacje z bibliotekami do scrapowania
 type ExampleScraper struct {
 	name string
 }
@@ -25,23 +25,16 @@ func (s *ExampleScraper) GetName() string {
 
 // ScrapeTeams - implementacja interfejsu TeamScraper
 func (s *ExampleScraper) ScrapeTeams(competitionID string) ([]models.Team, error) {
-	// TODO: Implementacja scrapowania drużyn
-	// np. użycie colly, goquery, chromedp itp.
-	
 	return nil, fmt.Errorf("not implemented: %s team scraper", s.name)
 }
 
 // ScrapePlayers - implementacja interfejsu PlayerScraper
 func (s *ExampleScraper) ScrapePlayers(teamID uint, externalTeamID string) ([]models.Player, error) {
-	// TODO: Implementacja scrapowania zawodników
-	
 	return nil, fmt.Errorf("not implemented: %s player scraper", s.name)
 }
 
 // ScrapeGames - implementacja interfejsu GameScraper
 func (s *ExampleScraper) ScrapeGames(competitionID string, stageID uint) ([]models.Game, error) {
-	// TODO: Implementacja scrapowania meczów
-	
 	return nil, fmt.Errorf("not implemented: %s game scraper", s.name)
 }
 
@@ -61,36 +54,45 @@ func NewMZPNScraper() *MZPNScraper {
 
 // ScrapeTeams - implementacja specyficzna dla MZPN
 func (s *MZPNScraper) ScrapeTeams(competitionID string) ([]models.Team, error) {
-	// TODO: Implementacja scrapowania drużyn z mzpn.pl
-	// url := fmt.Sprintf("%s/competitions/%s/teams", s.baseURL, competitionID)
-	// ... użycie biblioteki do scrapowania
-	
 	return nil, fmt.Errorf("MZPN team scraper not implemented yet")
 }
 
-// EkstraklasaScraper - przykład konkretnego scrapera dla Ekstraklasy
-type EkstraklasaScraper struct {
-	*ExampleScraper
-	baseURL string
-}
-
-
-// NalffutsalScraper - przykład scrapera dla rozgrywek NALF
+// NalffutsalScraper - scraper dla rozgrywek NALF
 type NalffutsalScraper struct {
 	*ExampleScraper
-	baseURL string
+	baseURL     string
+	teamScraper *NalffutsalTeamScraper
 }
 
 // NewNalffutsalScraper - tworzy scraper dla NALF
 func NewNalffutsalScraper() *NalffutsalScraper {
 	return &NalffutsalScraper{
 		ExampleScraper: NewExampleScraper("Nalffutsal"),
-		baseURL:        "https://example-futsal.pl",
+		baseURL:        "https://nalffutsal.pl",
+		teamScraper:    NewNalffutsalTeamScraper(),
 	}
 }
 
+// ScrapeTeams - implementacja dla NALF (stara sygnatura - nieużywana)
+func (s *NalffutsalScraper) ScrapeTeams(competitionID string) ([]models.Team, error) {
+	return nil, fmt.Errorf("use ScrapeTeamsWithDB instead")
+}
+
+// ScrapeTeamsWithDB - nowa metoda używana przez handler
+func (s *NalffutsalScraper) ScrapeTeamsWithDB(competitionID string, teamsURL string, db *gorm.DB) ([]models.TempTeam, error) {
+	// Użyj dedykowanego team scrapera
+	tempTeams, err := s.teamScraper.ScrapeTeams(competitionID, teamsURL, db)
+	if err != nil {
+		return nil, fmt.Errorf("NALF team scraper error: %w", err)
+	}
+	
+	// Wyświetl podsumowanie
+	s.teamScraper.PrintSummary(tempTeams)
+	
+	return tempTeams, nil
+}
+
 // RegisterExampleScrapers - rejestruje przykładowe scrapery
-// Ta funkcja powinna być wywołana podczas inicjalizacji aplikacji
 func RegisterExampleScrapers() {
 	registry := GetRegistry()
 	

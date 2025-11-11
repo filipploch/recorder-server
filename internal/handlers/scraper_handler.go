@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"recorder-server/internal/database"
 	"recorder-server/internal/models"
+	"recorder-server/internal/scrapers"
 	"recorder-server/internal/services"
 	"strconv"
 )
@@ -12,27 +14,20 @@ import (
 // ScraperHandler - handler dla operacji scrapowania
 type ScraperHandler struct {
 	scraperService *services.ScraperService
-	dbManager      *database.Manager
+	dbManager      *database.Manager // Dodaj to pole
 }
 
 // NewScraperHandler - tworzy nowy handler scraperów
-func NewScraperHandler(scraperService *services.ScraperService) *ScraperHandler {
+func NewScraperHandler(dbManager *database.Manager) *ScraperHandler {
 	return &ScraperHandler{
-		scraperService: scraperService,
+		dbManager: dbManager, // Ustaw dbManager
 	}
 }
 
 // ScrapeTeams - endpoint do scrapowania drużyn
-// POST /api/scrape/teams
-// Body: { "competition_id": 1, "external_competition_id": "ekstraklasa-2024" }
-// 
-// ZMIENIONA LOGIKA:
-// - Kompletne drużyny zapisywane są bezpośrednio do bazy
-// - Niekompletne drużyny zapisywane są do /competitions/<id>/tmp/teams.json
 func (h *ScraperHandler) ScrapeTeams(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		CompetitionID         uint   `json:"competition_id"`
-		ExternalCompetitionID string `json:"external_competition_id"`
+		CompetitionID uint `json:"competition_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -40,8 +35,60 @@ func (h *ScraperHandler) ScrapeTeams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wykonaj scrapowanie
-	teams, err := h.scraperService.ScrapeTeamsForCompetition(req.CompetitionID, req.ExternalCompetitionID)
+	db := h.dbManager.GetDB()
+	if db == nil {
+		http.Error(w, "Brak połączenia z bazą danych", http.StatusInternalServerError)
+		return
+	}
+
+	var competition models.Competition
+	if err := db.First(&competition, req.CompetitionID).Error; err != nil {
+		http.Error(w, "Nie znaleziono competition", http.StatusNotFound)
+		return
+	}
+
+	var variableData map[string]interface{}
+	if err := json.Unmarshal([]byte(competition.Variable), &variableData); err != nil {
+		http.Error(w, "Błąd parsowania Variable", http.StatusBadRequest)
+		return
+	}
+
+	scraperData, ok := variableData["scraper"].(map[string]interface{})
+	if !ok {
+		http.Error(w, "Brak danych scrapera w Variable", http.StatusBadRequest)
+		return
+	}
+
+	scraperName, ok := scraperData["name"].(string)
+	if !ok || scraperName == "" {
+		http.Error(w, "Brak nazwy scrapera", http.StatusBadRequest)
+		return
+	}
+
+	teamsURL, ok := scraperData["teams_url"].(string)
+	if !ok || teamsURL == "" {
+		http.Error(w, "Brak teams_url w scraperze", http.StatusBadRequest)
+		return
+	}
+
+	// Pobierz scraper
+	registry := scrapers.GetRegistry()
+	group, err := registry.GetGroup(scraperName)
+	if err != nil {
+		http.Error(w, "Nie znaleziono scrapera: "+scraperName, http.StatusNotFound)
+		return
+	}
+
+	// Sprawdź czy scraper implementuje TeamScraperWithDB
+	teamScraperWithDB, ok := group.TeamScraper.(scrapers.TeamScraperWithDB)
+	if !ok {
+		http.Error(w, "Scraper nie obsługuje scrapowania z bazą danych", http.StatusInternalServerError)
+		return
+	}
+
+	// Wykonaj scrapowanie z przekazaniem bazy danych
+	competitionID := h.dbManager.GetCurrentDatabaseName()
+	tempTeams, err := teamScraperWithDB.ScrapeTeamsWithDB(competitionID, teamsURL, db)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(models.APIResponse{
@@ -51,30 +98,41 @@ func (h *ScraperHandler) ScrapeTeams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: W rzeczywistej implementacji ScraperService powinien zwracać []TempTeam
-	// Na razie przyjmijmy że zwraca []Team i trzeba je skonwertować
-	
-	// Klasyfikuj drużyny na kompletne i niekompletne
-	completeCount := 0
-	incompleteCount := 0
-	
-	// TODO: Implementacja klasyfikacji i zapisu
-	// completeTeams - zapisz do bazy danych
-	// incompleteTeams - zapisz do pliku tymczasowego
-	
+	// Zapisz do pliku tymczasowego
+	manager := models.NewTempTeamManager(competitionID)
+	if err := manager.AddBulk(tempTeams); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(models.APIResponse{
+			Status: "error",
+			Error:  "Błąd zapisu: " + err.Error(),
+		})
+		return
+	}
+
+	// Pobierz statystyki
+	collection, _ := manager.Load()
+	complete := 0
+	incomplete := 0
+	for _, team := range collection.Teams {
+		if team.IsComplete() {
+			complete++
+		} else {
+			incomplete++
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":    "success",
-		"total":     len(teams),
-		"complete":  completeCount,
-		"incomplete": incompleteCount,
-		"message":   "Drużyny zescrapowane. Kompletne zapisane do bazy, niekompletne do pliku tymczasowego.",
+		"status":     "success",
+		"total":      len(collection.Teams),
+		"complete":   complete,
+		"incomplete": incomplete,
+		"new":        len(tempTeams),
+		"message":    fmt.Sprintf("Dodano %d nowych drużyn do pliku tymczasowego", len(tempTeams)),
 	})
 }
 
 // ScrapePlayers - endpoint do scrapowania zawodników
-// POST /api/scrape/players
-// Body: { "team_id": 1, "external_team_id": "legia-warszawa" }
 func (h *ScraperHandler) ScrapePlayers(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TeamID         uint   `json:"team_id"`
@@ -87,30 +145,16 @@ func (h *ScraperHandler) ScrapePlayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wykonaj scrapowanie
-	players, err := h.scraperService.ScrapePlayersForTeam(req.TeamID, req.ExternalTeamID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(models.APIResponse{
-			Status: "error",
-			Error:  err.Error(),
-		})
-		return
-	}
-
-	// TODO: Jeśli SaveToDB == true, zapisz zawodników do bazy
+	// TODO: Implementacja scrapowania zawodników
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"count":   len(players),
-		"players": players,
+		"status":  "error",
+		"message": "Not implemented yet",
 	})
 }
 
 // ScrapeGames - endpoint do scrapowania meczów
-// POST /api/scrape/games
-// Body: { "stage_id": 1, "external_competition_id": "ekstraklasa-2024" }
 func (h *ScraperHandler) ScrapeGames(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		StageID               uint   `json:"stage_id"`
@@ -123,42 +167,29 @@ func (h *ScraperHandler) ScrapeGames(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wykonaj scrapowanie
-	games, err := h.scraperService.ScrapeGamesForStage(req.StageID, req.ExternalCompetitionID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(models.APIResponse{
-			Status: "error",
-			Error:  err.Error(),
-		})
-		return
-	}
-
-	// TODO: Jeśli SaveToDB == true, zapisz mecze do bazy
+	// TODO: Implementacja scrapowania meczów
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
-		"count":  len(games),
-		"games":  games,
+		"status":  "error",
+		"message": "Not implemented yet",
 	})
 }
 
 // GetAvailableScrapers - endpoint zwracający listę dostępnych scraperów
-// GET /api/scrape/available
 func (h *ScraperHandler) GetAvailableScrapers(w http.ResponseWriter, r *http.Request) {
-	scrapers := h.scraperService.GetAvailableScrapers()
+	registry := scrapers.GetRegistry()
+	scrapersList := registry.ListGroups()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   "success",
-		"scrapers": scrapers,
-		"count":    len(scrapers),
+		"scrapers": scrapersList,
+		"count":    len(scrapersList),
 	})
 }
 
 // GetCompetitionScraperInfo - endpoint zwracający info o scraperze dla competition
-// GET /api/scrape/competition/info?competition_id=1
 func (h *ScraperHandler) GetCompetitionScraperInfo(w http.ResponseWriter, r *http.Request) {
 	competitionIDStr := r.URL.Query().Get("competition_id")
 	if competitionIDStr == "" {
