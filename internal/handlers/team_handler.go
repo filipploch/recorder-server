@@ -408,7 +408,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 	db := h.dbManager.GetDB()
 
-	// Sprawdź czy zespół istnieje
+	// Sprawdź czy zespół istnieje i załaduj z Kits
 	var team models.Team
 	if err := db.Preload("Kits.KitColors").First(&team, teamID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -456,7 +456,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			// Znajdź odpowiedni Kit
+			// Znajdź odpowiedni Kit dla tego typu
 			var kit models.Kit
 			found := false
 			for _, k := range team.Kits {
@@ -468,10 +468,23 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if !found {
-				continue
+				// Jeśli Kit nie istnieje (nie powinno się zdarzyć), utwórz go
+				kit = models.Kit{
+					TeamID: team.ID,
+					Type:   kitType,
+				}
+				if err := tx.Create(&kit).Error; err != nil {
+					tx.Rollback()
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"status": "error",
+						"error":  "Błąd tworzenia stroju: " + err.Error(),
+					})
+					return
+				}
 			}
 
-			// NAJPIERW usuń wszystkie stare kolory dla tego konkretnego stroju
+			// KLUCZOWA ZMIANA: Usuń wszystkie stare kolory dla tego konkretnego Kit
 			// Używamy Unscoped() aby fizycznie usunąć rekordy (nie soft delete)
 			if err := tx.Unscoped().Where("kit_id = ?", kit.ID).Delete(&models.KitColor{}).Error; err != nil {
 				tx.Rollback()
@@ -483,7 +496,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// POTEM dodaj nowe kolory z poprawnymi ColorOrder (1-based)
+			// Dodaj nowe kolory z poprawnymi ColorOrder (1-based)
 			for index, color := range colors {
 				kitColor := models.KitColor{
 					KitID:      kit.ID,

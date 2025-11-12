@@ -95,27 +95,55 @@ function openColorPicker(kitType, segmentIndex) {
     currentEditingSegment = segmentIndex;
     
     const currentColor = kitsData[kitType][segmentIndex];
-    document.getElementById('colorPicker').value = currentColor;
-    document.getElementById('colorPickerModal').classList.add('active');
-}
-
-function confirmColorPicker() {
-    const newColor = document.getElementById('colorPicker').value;
-    kitsData[currentEditingKit][currentEditingSegment] = newColor;
     
-    renderKit(currentEditingKit);
-    closeColorPicker();
+    // Utwórz tymczasowy niewidoczny input
+    const tempInput = document.createElement('input');
+    tempInput.type = 'color';
+    tempInput.value = currentColor;
+    tempInput.style.position = 'absolute';
+    tempInput.style.opacity = '0';
+    tempInput.style.pointerEvents = 'none';
+    
+    document.body.appendChild(tempInput);
+    
+    // Obsługa zmiany koloru
+    tempInput.addEventListener('change', function() {
+        const newColor = tempInput.value.toUpperCase();
+        kitsData[currentEditingKit][currentEditingSegment] = newColor;
+        renderKit(currentEditingKit);
+        document.body.removeChild(tempInput);
+    });
+    
+    // Obsługa anulowania (blur bez zmiany)
+    tempInput.addEventListener('blur', function() {
+        setTimeout(() => {
+            if (document.body.contains(tempInput)) {
+                document.body.removeChild(tempInput);
+            }
+        }, 100);
+    });
+    
+    // Otwórz systemowy picker
+    tempInput.click();
 }
 
-function cancelColorPicker() {
-    closeColorPicker();
-}
+// function confirmColorPicker() {
+//     const newColor = document.getElementById('colorPicker').value;
+//     kitsData[currentEditingKit][currentEditingSegment] = newColor;
+    
+//     renderKit(currentEditingKit);
+//     closeColorPicker();
+// }
 
-function closeColorPicker() {
-    document.getElementById('colorPickerModal').classList.remove('active');
-    currentEditingKit = null;
-    currentEditingSegment = null;
-}
+// function cancelColorPicker() {
+//     closeColorPicker();
+// }
+
+// function closeColorPicker() {
+//     document.getElementById('colorPickerModal').classList.remove('active');
+//     currentEditingKit = null;
+//     currentEditingSegment = null;
+// }
 
 function loadKitsFromTeam(team) {
     console.log('Loading kits from team:', team);
@@ -434,6 +462,24 @@ function openEditTempModal(tempId) {
                 document.getElementById('logo').value = team.logo || '';
                 document.getElementById('link').value = team.link || '';
                 document.getElementById('foreign_id').value = team.foreign_id || '';
+                
+                if (team.kits && Object.keys(team.kits).length > 0) {
+                    console.log('Loading kits from temp team:', team.kits);
+                    
+                    // Konwertuj kits z formatu TempTeam (obiekt z kluczami "1", "2", "3")
+                    for (let kitType = 1; kitType <= 3; kitType++) {
+                        const kitKey = kitType.toString();
+                        if (team.kits[kitKey] && Array.isArray(team.kits[kitKey])) {
+                            if (team.kits[kitKey].length > 0) {
+                                kitsData[kitType] = [...team.kits[kitKey]];
+                                console.log(`Loaded kit ${kitType}:`, kitsData[kitType]);
+                            }
+                        }
+                    }
+                    
+                    // Renderuj wszystkie stroje z załadowanymi danymi
+                    renderAllKits();
+                }
                 
                 updateLogoPreview();
                 document.getElementById('teamModal').classList.add('active');
