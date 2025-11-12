@@ -118,16 +118,35 @@ function closeColorPicker() {
 }
 
 function loadKitsFromTeam(team) {
+    console.log('Loading kits from team:', team);
+    
+    // Reset to defaults first
+    kitsData = {
+        1: ['#ffffff'],
+        2: ['#000000'],
+        3: ['#66ff73']
+    };
+    
     // Load kits from team data
-    if (team.kits && team.kits.length === 3) {
+    if (team.kits && team.kits.length >= 3) {
         team.kits.forEach(kit => {
+            console.log('Processing kit:', kit);
             if (kit.kit_colors && kit.kit_colors.length > 0) {
-                // Sort by ColorOrder
-                const sortedColors = kit.kit_colors.sort((a, b) => a.color_order - b.color_order);
-                kitsData[kit.type] = sortedColors.map(kc => kc.color);
+                // Sort by ColorOrder (case-insensitive for both snake_case and camelCase)
+                const sortedColors = kit.kit_colors.sort((a, b) => {
+                    const orderA = a.color_order || a.ColorOrder || 0;
+                    const orderB = b.color_order || b.ColorOrder || 0;
+                    return orderA - orderB;
+                });
+                
+                // Map to color values (handle both snake_case and camelCase)
+                kitsData[kit.type] = sortedColors.map(kc => kc.color || kc.Color);
+                console.log(`Kit ${kit.type} loaded with colors:`, kitsData[kit.type]);
             }
         });
     }
+    
+    console.log('Final kitsData:', kitsData);
     renderAllKits();
 }
 

@@ -447,20 +447,7 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 	// Aktualizuj stroje jeśli podano
 	if len(req.Kits) > 0 {
-		// Usuń wszystkie kolory dla każdego stroju
-		for _, kit := range team.Kits {
-			if err := tx.Where("kit_id = ?", kit.ID).Delete(&models.KitColor{}).Error; err != nil {
-				tx.Rollback()
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"status": "error",
-					"error":  "Błąd usuwania starych kolorów: " + err.Error(),
-				})
-				return
-			}
-		}
-
-		// Aktualizuj każdy strój
+		// Dla każdego typu stroju
 		for kitType := 1; kitType <= 3; kitType++ {
 			kitKey := strconv.Itoa(kitType)
 			colors, exists := req.Kits[kitKey]
@@ -471,18 +458,36 @@ func (h *TeamHandler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 
 			// Znajdź odpowiedni Kit
 			var kit models.Kit
+			found := false
 			for _, k := range team.Kits {
 				if k.Type == kitType {
 					kit = k
+					found = true
 					break
 				}
 			}
 
-			// Dodaj nowe kolory
-			for order, color := range colors {
+			if !found {
+				continue
+			}
+
+			// NAJPIERW usuń wszystkie stare kolory dla tego konkretnego stroju
+			// Używamy Unscoped() aby fizycznie usunąć rekordy (nie soft delete)
+			if err := tx.Unscoped().Where("kit_id = ?", kit.ID).Delete(&models.KitColor{}).Error; err != nil {
+				tx.Rollback()
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"status": "error",
+					"error":  "Błąd usuwania starych kolorów: " + err.Error(),
+				})
+				return
+			}
+
+			// POTEM dodaj nowe kolory z poprawnymi ColorOrder (1-based)
+			for index, color := range colors {
 				kitColor := models.KitColor{
 					KitID:      kit.ID,
-					ColorOrder: order + 1,
+					ColorOrder: index + 1, // 1-based index
 					Color:      color,
 				}
 
