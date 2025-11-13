@@ -62,7 +62,7 @@ func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	html := `
 	<!DOCTYPE html>
 	<html>
@@ -92,12 +92,12 @@ func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.
 					<select name="preset_name" required>
 						<option value="">-- Wybierz preset --</option>
 	`
-	
+
 	for _, preset := range presetsConfig.Presets.Competitions {
 		html += fmt.Sprintf(`					<option value="%s">%s</option>`, preset.Name, preset.Name)
 		html += "\n"
 	}
-	
+
 	html += `
 					</select>
 				</label>
@@ -115,9 +115,9 @@ func (h *SetupHandler) ShowCreateCompetitionPage(w http.ResponseWriter, r *http.
 				<p class="help">Pełna nazwa rozgrywek widoczna w aplikacji</p>
 
 				<label>Sezon:
-					<input type="text" name="season" value="2024/2025" required>
+					<input type="text" name="season" value="2025/2026" required>
 				</label>
-				<p class="help">Sezon rozgrywek (np. 2024/2025)</p>
+				<p class="help">Sezon rozgrywek (np. 2025/2026)</p>
 			</div>
 
 			<div class="section">
@@ -186,7 +186,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 
 	// Nazwa pliku bazy danych
 	dbFileName := competitionID + ".db"
-	
+
 	// Utwórz bazę przez manager (który utworzy plik w competitions/competitionID/)
 	if err := h.dbManager.CreateDatabase(competitionID); err != nil {
 		http.Error(w, fmt.Sprintf("Błąd tworzenia bazy: %v", err), http.StatusInternalServerError)
@@ -208,7 +208,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	db := h.dbManager.GetDB()
 
 	// === ZAPISZ DANE COMMON ===
-	
+
 	// TV Staff Roles
 	for _, role := range presetsConfig.Presets.Common.TVStaffRoles {
 		tvStaffRole := models.TVStaffRole{
@@ -250,7 +250,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	}
 
 	// === ZAPISZ DANE CONSTANT ===
-	
+
 	// Value Types
 	for _, vt := range preset.Constant.ValueTypes {
 		valueType := models.ValueType{
@@ -271,7 +271,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	}
 
 	// === PRZYGOTUJ VARIABLE ===
-	
+
 	// Dodaj teams_url i games_url do variable jeśli podano
 	if teamsURL != "" || gamesURL != "" {
 		if scraperData, ok := preset.Variable["scraper"].(map[string]interface{}); ok {
@@ -293,7 +293,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	// Serializuj Variable do JSON
 	variableJSON, _ := json.Marshal(preset.Variable)
 
-	// Utwórz rekord Competition
+	// Utwórz rekord Competition (MUSI BYĆ PRZED Stages!)
 	competition := models.Competition{
 		Name:     competitionName,
 		Season:   season,
@@ -302,6 +302,36 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 	if err := db.Create(&competition).Error; err != nil {
 		http.Error(w, fmt.Sprintf("Błąd zapisywania rozgrywek: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Utwórz Stages z predefiniowanymi ID
+	for _, stageData := range preset.Constant.Stages {
+		stage := models.Stage{
+			ID:             stageData.ID, // ID z presetu
+			CompetitionID:  competition.ID,
+			Name:           stageData.Name,
+			StageOrder:     stageData.StageOrder,
+			PromotionRules: stageData.PromotionRules,
+		}
+		if err := db.Create(&stage).Error; err != nil {
+			http.Error(w, fmt.Sprintf("Błąd tworzenia stage: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Utwórz Groups z predefiniowanymi ID (po wszystkich Stages)
+	for _, groupData := range preset.Constant.Groups {
+		group := models.Group{
+			ID:                     groupData.ID, // ID z presetu
+			StageID:                groupData.StageID,
+			Name:                   groupData.Name,
+			SpecificPromotionRules: groupData.SpecificPromotionRules,
+			NumberInStage:          groupData.NumberInStage,
+		}
+		if err := db.Create(&group).Error; err != nil {
+			http.Error(w, fmt.Sprintf("Błąd tworzenia group: %v", err), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Utwórz pusty rekord ActiveSession (singleton)
@@ -332,7 +362,7 @@ func (h *SetupHandler) CreateCompetition(w http.ResponseWriter, r *http.Request)
 		IsActive:     true,
 	}
 	dbConfig.AddCompetition(compRef)
-	
+
 	// Ustaw jako aktualną
 	if !dbConfig.SetCurrentCompetition(competitionID) {
 		http.Error(w, "Błąd ustawiania aktualnej bazy danych", http.StatusInternalServerError)

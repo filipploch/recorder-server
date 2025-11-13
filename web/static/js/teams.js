@@ -548,8 +548,6 @@ function saveTeam() {
         kits: getKitsForSave() // Include kits data
     };
 
-    console.log("teamData", teamData);
-
     let url, method;
     
     if (isEditingTemp) {
@@ -563,11 +561,7 @@ function saveTeam() {
         url = '/api/teams';
         method = 'POST';
     }
-    console.log("501");
-    console.log("url", url);
-    console.log("method", method);
-    console.log("currentTempId", currentTempId);
-    console.log("currentTeamId", currentTeamId);
+
     fetch(url, {
         method: method,
         headers: {
@@ -585,7 +579,6 @@ function saveTeam() {
         return response.json();
     })
     .then(data => {
-        console.log("data 519", data);
         if (data.status === 'success') {
             closeModal();
             

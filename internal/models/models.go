@@ -180,16 +180,17 @@ type Competition struct {
 
 // Stage - etap rozgrywek (np. faza grupowa, 1/8 finału)
 type Stage struct {
-	ID            uint   `gorm:"primaryKey" json:"id"`
-	CompetitionID uint   `json:"competition_id"`
-	Name          string `gorm:"not null" json:"name"` // np. "Grupa A", "1/8 finału", "Kolejka 5"
-	StageOrder    int    `json:"stage_order"`          // kolejność etapu
-	ParentStageID *uint  `json:"parent_stage_id"`      // nullable - etap z którego awansowano
+	ID             uint    `gorm:"primaryKey" json:"id"`
+	CompetitionID  uint    `json:"competition_id"`
+	Name           string  `gorm:"not null" json:"name"` // np. "Grupa A", "1/8 finału", "Kolejka 5"
+	StageOrder     uint    `json:"stage_order"`          // kolejność etapu
+	PromotionRules *string `gorm:"type:text" json:"promotion_rules"`
+	// ParentStageID *uint  `json:"parent_stage_id"`      // nullable - etap z którego awansowano
 
 	// Relacje
 	Competition Competition `gorm:"foreignKey:CompetitionID" json:"competition,omitempty"`
-	ParentStage *Stage      `gorm:"foreignKey:ParentStageID" json:"parent_stage,omitempty"`
-	Groups      []Group     `gorm:"foreignKey:StageID" json:"groups,omitempty"`
+	// ParentStage *Stage      `gorm:"foreignKey:ParentStageID" json:"parent_stage,omitempty"`
+	Groups []Group `gorm:"foreignKey:StageID" json:"groups,omitempty"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
@@ -198,9 +199,11 @@ type Stage struct {
 
 // Group - grupa drużyn (liga, grupa pucharowa, para w pucharze)
 type Group struct {
-	ID      uint   `gorm:"primaryKey" json:"id"`
-	StageID uint   `json:"stage_id"`
-	Name    string `json:"name"` // np. "Grupa A", "Para 1", "Tabela ligowa"
+	ID                     uint    `gorm:"primaryKey" json:"id"`
+	StageID                uint    `json:"stage_id"`
+	Name                   string  `json:"name"` // np. "Grupa A", "Para 1", "Tabela ligowa"
+	SpecificPromotionRules *string `gorm:"type:text" json:"specific_promotion_rules"`
+	NumberInStage          uint    `json:"number_in_stage"` // numer grupy w etapie
 
 	// Relacje
 	Stage      Stage       `gorm:"foreignKey:StageID" json:"stage,omitempty"`

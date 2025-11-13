@@ -3,6 +3,7 @@ package scrapers
 import (
 	"fmt"
 	"recorder-server/internal/models"
+
 	"gorm.io/gorm"
 )
 
@@ -38,23 +39,10 @@ func (s *ExampleScraper) ScrapeGames(competitionID string, stageID uint) ([]mode
 	return nil, fmt.Errorf("not implemented: %s game scraper", s.name)
 }
 
-// MZPNScraper - przykład konkretnego scrapera dla MZPN
-type MZPNScraper struct {
-	*ExampleScraper
-	baseURL string
-}
-
-// NewMZPNScraper - tworzy scraper dla MZPN
-func NewMZPNScraper() *MZPNScraper {
-	return &MZPNScraper{
-		ExampleScraper: NewExampleScraper("MZPN"),
-		baseURL:        "https://www.mzpn.pl",
-	}
-}
-
-// ScrapeTeams - implementacja specyficzna dla MZPN
-func (s *MZPNScraper) ScrapeTeams(competitionID string) ([]models.Team, error) {
-	return nil, fmt.Errorf("MZPN team scraper not implemented yet")
+// MZPNScraper jest teraz zdefiniowany w mzpn_team_scraper.go jako MZPNScraperWrapper
+// Ta funkcja tworzy nową instancję wrappera
+func NewMZPNScraper() *MZPNScraperWrapper {
+	return NewMZPNScraperWrapper()
 }
 
 // NalffutsalScraper - scraper dla rozgrywek NALF
@@ -85,17 +73,17 @@ func (s *NalffutsalScraper) ScrapeTeamsWithDB(competitionID string, teamsURL str
 	if err != nil {
 		return nil, fmt.Errorf("NALF team scraper error: %w", err)
 	}
-	
+
 	// Wyświetl podsumowanie
 	s.teamScraper.PrintSummary(tempTeams)
-	
+
 	return tempTeams, nil
 }
 
 // RegisterExampleScrapers - rejestruje przykładowe scrapery
 func RegisterExampleScrapers() {
 	registry := GetRegistry()
-	
+
 	// Rejestracja scrapera MZPN
 	mzpnScraper := NewMZPNScraper()
 	registry.RegisterGroup("mzpn", &ScraperGroup{
@@ -103,7 +91,7 @@ func RegisterExampleScrapers() {
 		PlayerScraper: mzpnScraper,
 		GameScraper:   mzpnScraper,
 	})
-	
+
 	// Rejestracja scrapera Nalffutsal
 	nalffutsalScraper := NewNalffutsalScraper()
 	registry.RegisterGroup("nalffutsal", &ScraperGroup{

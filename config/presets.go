@@ -29,6 +29,8 @@ type ConstantData struct {
 	ValueTypes     []ValueTypeData     `json:"value_types"`
 	PlayerRoles    []RoleData          `json:"player_roles"`
 	GamePartValues []GamePartValueData `json:"game_part_values"`
+	Stages         []StageData         `json:"stages"`
+	Groups         []GroupData         `json:"groups"`
 }
 
 // CommonData - dane wspólne dla wszystkich rozgrywek
@@ -67,6 +69,23 @@ type GamePartValueData struct {
 	GameValueGroup *int `json:"game_value_group"` // nullable
 	MinValue       *int `json:"min_value"`        // nullable
 	MaxValue       *int `json:"max_value"`        // nullable
+}
+
+// StagesData - dane etapów rozgrywek
+type StageData struct {
+	ID             uint    `json:"id"`
+	Name           string  `json:"name"`
+	StageOrder     uint    `json:"stage_order"`
+	PromotionRules *string `json:"promotion_rules"` // nullable
+}
+
+// StagesData - dane etapów rozgrywek
+type GroupData struct {
+	ID                     uint    `json:"id"`
+	StageID                uint    `json:"stage_id"`
+	Name                   string  `json:"name"`
+	SpecificPromotionRules *string `json:"specific_promotion_rules"` // nullable
+	NumberInStage          uint    `json:"number_in_stage"`
 }
 
 const PresetsConfigFile = "presets.json"
